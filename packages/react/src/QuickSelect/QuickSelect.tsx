@@ -1,9 +1,9 @@
+import React from 'react'
 import {SearchIcon, TriangleDownIcon} from '@primer/octicons-react'
-import React, {useCallback, useMemo} from 'react'
+import {useRef, useCallback, useMemo} from 'react'
 import type {AnchoredOverlayProps} from '../AnchoredOverlay'
 import {AnchoredOverlay} from '../AnchoredOverlay'
 import type {AnchoredOverlayWrapperAnchorProps} from '../AnchoredOverlay/AnchoredOverlay'
-import {StyledOverlay, heightMap} from '../Overlay/Overlay'
 import Box from '../Box'
 import type {FilteredActionListProps} from '../FilteredActionList'
 import {FilteredActionList} from '../FilteredActionList'
@@ -29,15 +29,13 @@ interface QuickSelectMultiSelection {
 }
 
 interface QuickSelectBaseProps {
-  // TODO: Make `title` required in the next major version
-  title?: string | React.ReactElement
-  subtitle?: string | React.ReactElement
+  title: string | React.ReactElement
+  description?: string
   onOpenChange: (
     open: boolean,
     gesture: 'anchor-click' | 'anchor-key-press' | 'click-outside' | 'escape' | 'selection',
   ) => void
   placeholder?: string
-  // TODO: Make `inputLabel` required in next major version
   inputLabel?: string
   overlayProps?: Partial<OverlayProps>
 }
@@ -76,7 +74,7 @@ export function QuickSelect({
   inputLabel = placeholderText,
   selected,
   title = isMultiSelectVariant(selected) ? 'Select items' : 'Select an item',
-  subtitle,
+  description,
   onSelectedChange,
   filterValue: externalFilterValue,
   onFilterChange: externalOnFilterChange,
@@ -87,10 +85,10 @@ export function QuickSelect({
   ...listProps
 }: QuickSelectProps): JSX.Element {
   const titleId = useId()
-  const subtitleId = useId()
+  const descriptionId = useId()
   const [filterValue, setInternalFilterValue] = useProvidedStateOrCreate(externalFilterValue, undefined, '')
   const onFilterChange: FilteredActionListProps['onFilterChange'] = useCallback(
-    (value, e) => {
+    (value: string, e: unknown) => {
       externalOnFilterChange(value, e)
       setInternalFilterValue(value)
     },
@@ -116,7 +114,7 @@ export function QuickSelect({
 
     const selectedItems = Array.isArray(selected) ? selected : [...(selected ? [selected] : [])]
 
-    return <T extends React.HTMLAttributes<HTMLElement>>(props: T) => {
+    return <T extends React.Attributes>(props: T) => {
       return renderAnchor({
         ...props,
         children: selectedItems.length ? selectedItems.map(item => item.text).join(', ') : placeholder,
@@ -124,36 +122,43 @@ export function QuickSelect({
     }
   }, [placeholder, renderAnchor, selected])
 
-  const handleSelectionChange = useCallback((newSelection) => {
-    onSelectedChange(newSelection); // Update the selection
-    onOpenChange(false, 'selection'); // Close the menu
-  }, [onSelectedChange, onOpenChange]);
+  const handleSelectionChange = useCallback(
+    (newSelection: (ItemInput | undefined) & ItemInput[]) => {
+      onSelectedChange(newSelection) // Update the selection
+      onOpenChange(false, 'selection') // Close the menu
+    },
+    [onSelectedChange, onOpenChange],
+  )
 
-  const itemsToRender = useMemo(() => items.map(item => {
-    const isItemSelected = isMultiSelectVariant(selected) ? selected.includes(item) : selected === item;
+  const itemsToRender = useMemo(
+    () =>
+      items.map(item => {
+        const isItemSelected = isMultiSelectVariant(selected) ? selected.includes(item) : selected === item
 
-    return {
-      ...item,
-      role: 'option',
-      selected: isItemSelected,
-      onAction: (itemFromAction, event) => {
-        if (event.defaultPrevented) {
-          return;
+        return {
+          ...item,
+          role: 'option',
+          selected: isItemSelected,
+          onAction: (itemFromAction: unknown, event: {defaultPrevented: unknown}) => {
+            if (event.defaultPrevented) {
+              return
+            }
+
+            if (isMultiSelectVariant(selected)) {
+              const newSelectedItems = selected.includes(item)
+                ? selected.filter(selectedItem => selectedItem !== item)
+                : [...selected, item]
+              handleSelectionChange(newSelectedItems)
+            } else {
+              handleSelectionChange(item === selected ? undefined : item)
+            }
+          },
         }
+      }),
+    [handleSelectionChange, selected, items],
+  )
 
-        if (isMultiSelectVariant(selected)) {
-          const newSelectedItems = selected.includes(item)
-            ? selected.filter(selectedItem => selectedItem !== item)
-            : [...selected, item];
-          handleSelectionChange(newSelectedItems);
-        } else {
-          handleSelectionChange(item === selected ? undefined : item);
-        }
-      },
-    };
-  }), [handleSelectionChange, selected, items]);
-
-  const inputRef = React.useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const focusTrapSettings = {
     initialFocusRef: inputRef,
   }
@@ -178,7 +183,7 @@ export function QuickSelect({
       overlayProps={{
         role: 'none',
         'aria-labelledby': titleId,
-        'aria-describedby': subtitle ? subtitleId : undefined,
+        'aria-describedby': description ? descriptionId : undefined,
         ...overlayProps,
       }}
       focusTrapSettings={focusTrapSettings}
@@ -189,6 +194,11 @@ export function QuickSelect({
           <Heading as="h1" id={titleId} sx={{fontSize: 1}}>
             {title}
           </Heading>
+          {description ? (
+            <Box id={descriptionId} sx={{fontSize: 0, color: 'fg.muted'}}>
+              {description}
+            </Box>
+          ) : null}
         </Box>
         <FilteredActionList
           filterValue={filterValue}

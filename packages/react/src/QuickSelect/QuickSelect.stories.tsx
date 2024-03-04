@@ -52,12 +52,13 @@ export const Default = () => {
       <h1>Multi Quick Select</h1>
       <QuickSelect
         title="Select labels"
+        description="Just a description"
         renderAnchor={({children, 'aria-labelledby': ariaLabelledBy, ...anchorProps}) => (
           <Button
             trailingAction={TriangleDownIcon}
             aria-labelledby={` ${ariaLabelledBy}`}
             {...anchorProps}
-            aria-haspopup="dialog"
+            aria-haspopup="true"
           >
             {children ?? 'Select Labels'}
           </Button>

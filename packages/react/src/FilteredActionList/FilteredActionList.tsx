@@ -122,6 +122,7 @@ export function FilteredActionList({
           onChange={onInputChange}
           onKeyPress={onInputKeyPress}
           placeholder={placeholderText}
+          aria-expanded="true"
           aria-label={placeholderText}
           aria-controls={listId}
           aria-describedby={inputDescriptionTextId}
