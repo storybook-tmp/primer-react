@@ -117,6 +117,7 @@ export function FilteredActionList({
           block
           width="auto"
           color="fg.default"
+          role="combobox"
           value={filterValue}
           onChange={onInputChange}
           onKeyPress={onInputKeyPress}
