@@ -1,5 +1,15 @@
 # @primer/react
 
+## 37.8.1
+
+### Patch Changes
+
+- [#5382](https://github.com/primer/react/pull/5382) [`83607df`](https://github.com/primer/react/commit/83607dfeff055b651eeeeb79bc9bb651def081a8) Thanks [@jonrohan](https://github.com/jonrohan)! - Move Skeleton component css module feature flag to ga
+
+- [#5388](https://github.com/primer/react/pull/5388) [`e3856ba`](https://github.com/primer/react/commit/e3856ba959c8ec43b9bd19da1239a828524bcb82) Thanks [@jonrohan](https://github.com/jonrohan)! - Move TreeView component css module feature flag to staff
+
+- [#5387](https://github.com/primer/react/pull/5387) [`e29c40c`](https://github.com/primer/react/commit/e29c40c31d0630873de5a03f501f5b1f86b511ef) Thanks [@jonrohan](https://github.com/jonrohan)! - Move Breadcrumbs component css module feature flag to ga
+
 ## 37.8.0
 
 ### Minor Changes
