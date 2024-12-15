@@ -21,10 +21,9 @@ const config: StorybookConfig = {
         backgrounds: false,
       },
     },
-    getAbsolutePath('@storybook/addon-storysource'),
-    getAbsolutePath('@storybook/addon-interactions'),
     getAbsolutePath('@storybook/addon-a11y'),
     getAbsolutePath('@storybook/addon-links'),
+    getAbsolutePath('@storybook/experimental-addon-test'),
   ],
 
   framework: {

@@ -4,6 +4,7 @@ import {UnderlineNav} from './index'
 
 export default {
   title: 'Components/UnderlineNav/DevOnly',
+  tags: ['!test'],
 } as Meta
 
 export const IllegalState = () => {

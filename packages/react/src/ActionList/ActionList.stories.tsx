@@ -13,6 +13,7 @@ export default {
   title: 'Components/ActionList',
   component: ActionList,
   subcomponents: {Item, LinkItem, Group, Divider, Description},
+  tags: ['!test'],
 } as Meta<typeof ActionList>
 
 export const Default = () => (

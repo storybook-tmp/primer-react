@@ -5,6 +5,7 @@ import {OverflowTemplate} from './UnderlineNav.features.stories'
 
 export default {
   title: 'Components/UnderlineNav/Interactions',
+  tags: ['!test'],
 } as Meta
 
 const SelectAMenuItem = () => {
