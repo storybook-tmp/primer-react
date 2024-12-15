@@ -5,6 +5,6 @@ import * as a11yAddon from '@storybook/addon-a11y/preview'
 
 // This is an important step to apply the right configuration when testing your stories.
 // More info at: https://storybook.js.org/docs/api/portable-stories/portable-stories-vitest#setprojectannotations
-const project = setProjectAnnotations([projectAnnotations, a11yAddon])
+const project = setProjectAnnotations([a11yAddon, projectAnnotations])
 
 beforeAll(project.beforeAll)
