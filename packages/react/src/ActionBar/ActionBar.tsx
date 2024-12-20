@@ -147,7 +147,7 @@ const overflowEffect = (
       if (index < numberOfListItems) {
         items.push(child)
         //if the last item is a divider
-      } else if (childWidthArray[index].text === 'divider') {
+      } else if (childWidthArray[index]?.text === 'divider') {
         if (index === numberOfListItems - 1 || index === numberOfListItems) {
           continue
         } else {

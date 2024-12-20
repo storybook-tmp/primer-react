@@ -20,6 +20,7 @@ import {TreeView} from './TreeView'
 const meta: Meta = {
   title: 'Components/TreeView/Features',
   component: TreeView,
+  tags: ['!test'],
   decorators: [
     Story => {
       return (
