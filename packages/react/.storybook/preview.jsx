@@ -207,7 +207,7 @@ const preview = {
     },
 
     viewport: {
-      viewports: {
+      options: {
         ...storybookViewports,
       },
     },
