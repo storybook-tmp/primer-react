@@ -177,6 +177,11 @@ const getMenuItems = (
   }
 }
 
+/**
+ * Bladie bla
+ * @import import {ActionBar} from '@2primer/react'
+ * @constructor
+ */
 export const ActionBar: React.FC<React.PropsWithChildren<ActionBarProps>> = props => {
   const {
     size = 'medium',

@@ -15,14 +15,20 @@ import type {Meta, StoryObj} from '@storybook/react-vite'
 
 const meta: Meta<typeof ActionBar> = {
   title: 'Experimental/Components/ActionBar',
+
 } as Meta<typeof ActionBar>
 
 export default meta
 type Story = StoryObj<typeof ActionBar>
 
+/**
+ * @summary blad
+ * blasdf
+ */
 export const Playground: Story = {
   render: ({'aria-labelledby': _, ...args}) => (
     <ActionBar {...args} aria-label="Toolbar">
+      <BoldIcon/>
       <ActionBar.IconButton icon={BoldIcon} aria-label="Bold"></ActionBar.IconButton>
       <ActionBar.IconButton icon={ItalicIcon} aria-label="Italic"></ActionBar.IconButton>
       <ActionBar.Divider />

@@ -22,6 +22,7 @@ Object.entries(PrimerBreakpoints).forEach(([viewport, value]) => {
 })
 
 const preview = {
+  tags: ['autodocs'],
   parameters: {
     html: {
       root: '#html-addon-root',

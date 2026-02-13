@@ -11,6 +11,7 @@ const require = createRequire(import.meta.url)
 const {DEPLOY_ENV = 'development'} = process.env
 
 const config: StorybookConfig = {
+  logLevel: 'trace',
   stories:
     DEPLOY_ENV === 'development'
       ? ['../src/**/*.mdx', '../src/**/*.stories.@(js|jsx|ts|tsx)']
