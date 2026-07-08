@@ -25,7 +25,7 @@ const config: StorybookConfig = {
       name: getAbsolutePath('@storybook/addon-mcp'),
       options: {
         toolsets: {
-          dev: false,
+          dev: true,
         },
       },
     },
