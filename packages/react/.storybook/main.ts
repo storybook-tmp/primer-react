@@ -99,6 +99,7 @@ const config: StorybookConfig = {
     backgrounds: false,
     componentsManifest: true,
     experimentalCodeExamples: true,
+    experimentalDocgenServer: true,
   },
 }
 
