@@ -26,8 +26,15 @@ const config: StorybookConfig = {
     getAbsolutePath('@storybook/addon-a11y'),
     getAbsolutePath('@storybook/addon-links'),
     getAbsolutePath('@storybook/addon-docs'),
-    getAbsolutePath("@github-ui/storybook-addon-performance-panel"),
-    getAbsolutePath('@storybook/addon-mcp'),
+    getAbsolutePath('@github-ui/storybook-addon-performance-panel'),
+    {
+      name: getAbsolutePath('@storybook/addon-mcp'),
+      options: {
+        toolsets: {
+          dev: true,
+        },
+      },
+    },
   ],
 
   framework: {
@@ -91,6 +98,7 @@ const config: StorybookConfig = {
   features: {
     backgrounds: false,
     componentsManifest: true,
+    experimentalCodeExamples: true,
   },
 }
 
