@@ -2,6 +2,8 @@ import type React from 'react'
 import type {HeaderProps} from './Header'
 import {Header} from './Header'
 
+import type {JSX} from 'react'
+
 /**
  * Contract for props passed to the `Group` component.
  */
@@ -30,7 +32,7 @@ export interface GroupProps extends React.ComponentPropsWithoutRef<'div'> {
 /**
  * Collects related `Items` in an `ActionList`.
  */
-export function Group({header, items, ...props}: GroupProps): JSX.Element {
+export function Group({header, items, groupId: _groupId, ...props}: GroupProps): JSX.Element {
   return (
     <div {...props}>
       {header && <Header {...header} />}

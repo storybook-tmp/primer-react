@@ -2,10 +2,14 @@ import {describe, expect, test, beforeEach, afterEach} from 'vitest'
 import {render, screen} from '@testing-library/react'
 import {act} from 'react'
 import {ScrollableRegion} from '../ScrollableRegion'
+import {implementsClassName} from '../utils/testing'
+import classes from './ScrollableRegion.module.css'
 
 const originalResizeObserver = window.ResizeObserver
 
 describe('ScrollableRegion', () => {
+  implementsClassName(ScrollableRegion, classes.ScrollableRegion)
+
   let mockResizeCallback: (entries: Array<ResizeObserverEntry>) => void
 
   beforeEach(() => {
@@ -24,6 +28,16 @@ describe('ScrollableRegion', () => {
 
   afterEach(() => {
     window.ResizeObserver = originalResizeObserver
+  })
+
+  test('renders data-component attribute', () => {
+    render(
+      <ScrollableRegion aria-label="Example label" data-testid="container">
+        Example content
+      </ScrollableRegion>,
+    )
+
+    expect(screen.getByTestId('container')).toHaveAttribute('data-component', 'ScrollableRegion')
   })
 
   test('does not render with region props by default', () => {

@@ -16,8 +16,12 @@ const ButtonGroup = React.forwardRef(function ButtonGroup(
   {as: BaseComponent = 'div', children, className, role, ...rest},
   forwardRef,
 ) {
-  const buttons = React.Children.map(children, (child, index) => <div key={index}>{child}</div>)
-  const buttonRef = useProvidedRefOrCreate(forwardRef as React.RefObject<HTMLDivElement>)
+  const buttons = React.Children.map(children, (child, index) => (
+    <div key={index} className={classes.Item}>
+      {child}
+    </div>
+  ))
+  const buttonRef = useProvidedRefOrCreate(forwardRef as React.RefObject<HTMLDivElement | null>)
 
   useFocusZone({
     containerRef: buttonRef,
@@ -27,7 +31,14 @@ const ButtonGroup = React.forwardRef(function ButtonGroup(
   })
 
   return (
-    <BaseComponent ref={buttonRef} className={clsx(className, classes.ButtonGroup)} role={role} {...rest}>
+    <BaseComponent
+      //@ts-expect-error it needs a non nullable ref
+      ref={buttonRef}
+      className={clsx(className, classes.ButtonGroup)}
+      role={role}
+      {...rest}
+      data-component="ButtonGroup"
+    >
       {buttons}
     </BaseComponent>
   )

@@ -2,12 +2,12 @@ import {describe, expect, it} from 'vitest'
 import {render} from '@testing-library/react'
 import type {PopoverProps} from '../Popover'
 import Popover from '../Popover'
+import classes from './Popover.module.css'
+import {implementsClassName} from '../utils/testing'
 
 describe('Popover', () => {
-  it('should support `className` on the outermost element', () => {
-    const Element = () => <Popover className={'test-class-name'}></Popover>
-    expect(render(<Element />).container.firstChild).toHaveClass('test-class-name')
-  })
+  implementsClassName(Popover, classes.Popover)
+  implementsClassName(Popover.Content, classes.PopoverContent)
 
   const CARET_POSITIONS: PopoverProps['caret'][] = [
     'top',
@@ -33,9 +33,18 @@ describe('Popover', () => {
       )
 
       const {container} = render(element)
+      expect(container.firstChild).toHaveAttribute('data-component', 'Popover')
       expect(container.firstChild).toHaveAttribute('data-caret', pos)
     })
   }
+
+  it('renders data-component attributes for Popover and Popover.Content', () => {
+    const {container: popoverContainer} = render(<Popover />)
+    const {container: contentContainer} = render(<Popover.Content />)
+
+    expect(popoverContainer.firstChild).toHaveAttribute('data-component', 'Popover')
+    expect(contentContainer.firstChild).toHaveAttribute('data-component', 'Popover.Content')
+  })
 
   it('renders both elements as a <div>', () => {
     const {container: popoverContainer} = render(<Popover />)

@@ -1,5 +1,9 @@
 import React, {useState, useRef, useCallback} from 'react'
-import {Stack, TextInput, Text, Button, ActionList} from '..'
+import {Stack} from '../Stack'
+import TextInput from '../TextInput'
+import Text from '../Text'
+import {Button} from '../Button'
+import {ActionList} from '../ActionList'
 import type {DialogProps, DialogWidth, DialogHeight} from './Dialog'
 import {Dialog} from './Dialog'
 import classes from './Dialog.stories.module.css'
@@ -117,6 +121,36 @@ export const WithCustomRenderers = ({width, height, subtitle}: DialogStoryProps)
   )
 }
 
+export const WithDirectSubcomponents = ({width, height, subtitle}: DialogStoryProps) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const onDialogClose = useCallback(() => setIsOpen(false), [])
+  return (
+    <>
+      <Button onClick={() => setIsOpen(!isOpen)}>Show dialog</Button>
+      {isOpen && (
+        <Dialog
+          title="My Dialog"
+          subtitle={subtitle ? 'This is a subtitle!' : undefined}
+          width={width}
+          height={height}
+          onClose={onDialogClose}
+        >
+          <Dialog.Header>My dialog</Dialog.Header>
+          <Dialog.Body>{lipsum}</Dialog.Body>
+          <Dialog.Footer>
+            <Dialog.Buttons
+              buttons={[
+                {buttonType: 'danger', content: 'Delete the universe', onClick: onDialogClose},
+                {buttonType: 'primary', content: 'Proceed'},
+              ]}
+            />
+          </Dialog.Footer>
+        </Dialog>
+      )}
+    </>
+  )
+}
+
 export const StressTest = ({width, height, subtitle}: DialogStoryProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [secondOpen, setSecondOpen] = useState(false)
@@ -183,6 +217,7 @@ export const ReproMultistepDialogWithConditionalFooter = ({width, height}: Dialo
   React.useEffect(() => {
     // focus the close button when the step changes
     const focusTarget = dialogRef.current?.querySelector('button[aria-label="Close"]') as HTMLButtonElement
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (step === 2) {
       focusTarget.focus()
     }
@@ -541,6 +576,65 @@ export const LoadingCustomFooterButtonsCould = () => {
           ]}
         >
           <Text as="p">This is some text</Text>
+        </Dialog>
+      )}
+    </>
+  )
+}
+
+export const AlignTop = () => {
+  const [isOpen, setIsOpen] = useState(true)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const onDialogClose = useCallback(() => setIsOpen(false), [])
+
+  return (
+    <>
+      <Button ref={buttonRef} onClick={() => setIsOpen(true)}>
+        Show dialog
+      </Button>
+      {isOpen && (
+        <Dialog title="My Dialog" onClose={onDialogClose} align="top">
+          {bodyContent}
+        </Dialog>
+      )}
+    </>
+  )
+}
+AlignTop.storyName = '[Align] Top'
+
+export const AlignBottom = () => {
+  const [isOpen, setIsOpen] = useState(true)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const onDialogClose = useCallback(() => setIsOpen(false), [])
+
+  return (
+    <>
+      <Button ref={buttonRef} onClick={() => setIsOpen(true)}>
+        Show dialog
+      </Button>
+      {isOpen && (
+        <Dialog title="My Dialog" onClose={onDialogClose} align="bottom">
+          {bodyContent}
+        </Dialog>
+      )}
+    </>
+  )
+}
+AlignBottom.storyName = '[Align] Bottom'
+
+export const CustomWidth = () => {
+  const [isOpen, setIsOpen] = useState(true)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const onDialogClose = useCallback(() => setIsOpen(false), [])
+
+  return (
+    <>
+      <Button ref={buttonRef} onClick={() => setIsOpen(true)}>
+        Show dialog
+      </Button>
+      {isOpen && (
+        <Dialog title="Custom Width Dialog" onClose={onDialogClose} width="400px">
+          {bodyContent}
         </Dialog>
       )}
     </>

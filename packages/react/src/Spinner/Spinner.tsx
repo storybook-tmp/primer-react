@@ -1,9 +1,13 @@
+import {clsx} from 'clsx'
 import type React from 'react'
+import {useEffect, useState} from 'react'
 import {VisuallyHidden} from '../VisuallyHidden'
 import type {HTMLDataAttributes} from '../internal/internal-types'
 import {useId} from '../hooks'
 import classes from './Spinner.module.css'
-import {clsx} from 'clsx'
+import {useMedia} from '../hooks/useMedia'
+
+const ANIMATION_DURATION_MS = 1000
 
 const sizeMap = {
   small: '16px',
@@ -20,6 +24,8 @@ export type SpinnerProps = {
   'aria-label'?: string
   className?: string
   style?: React.CSSProperties
+  /** Controls whether and how long to delay rendering the spinner. Set to `true` to delay by 1000ms, `'short'` to delay by 300ms, `'long'` to delay by 1000ms, or provide a custom number of milliseconds. */
+  delay?: boolean | 'short' | 'long' | number
 } & HTMLDataAttributes
 
 function Spinner({
@@ -28,15 +34,40 @@ function Spinner({
   'aria-label': ariaLabel,
   className,
   style,
+  delay = false,
   ...props
 }: SpinnerProps) {
+  const noMotionPreference = useMedia('(prefers-reduced-motion: no-preference)', false)
   const size = sizeMap[sizeKey]
   const hasHiddenLabel = srText !== null && ariaLabel === undefined
   const labelId = useId()
 
+  const [{isVisible, syncDelay}, setVisibleState] = useState(() => ({
+    isVisible: !delay,
+    syncDelay: !delay ? computeSyncDelay() : 0,
+  }))
+
+  useEffect(() => {
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
+    if (delay) {
+      const delayDuration = typeof delay === 'number' ? delay : delay === 'short' ? 300 : 1000
+      const timeoutId = setTimeout(() => {
+        setVisibleState({isVisible: true, syncDelay: computeSyncDelay()})
+      }, delayDuration)
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [delay])
+
+  if (!isVisible) {
+    return null
+  }
+
+  const mergedStyle = noMotionPreference ? {...style, animationDelay: `${syncDelay}ms`} : style
+
   return (
     /* inline-flex removes the extra line height */
-    <span className={classes.Box}>
+    <span className={classes.Box} data-component="Spinner">
       <svg
         height={size}
         width={size}
@@ -46,7 +77,7 @@ function Spinner({
         aria-label={ariaLabel ?? undefined}
         aria-labelledby={hasHiddenLabel ? labelId : undefined}
         className={clsx(className, classes.SpinnerAnimation)}
-        style={style}
+        style={mergedStyle}
         {...props}
       >
         <circle
@@ -72,5 +103,18 @@ function Spinner({
 }
 
 Spinner.displayName = 'Spinner'
+
+/**
+ * Computes a negative animation-delay so all spinners land at the same
+ * rotation angle regardless of when they mount. Because every instance
+ * references the same clock (performance.now()), the CSS animation engine
+ * keeps them visually in sync without any Web Animations API calls
+ * (getAnimations, element.animate, startTime), which are significantly
+ * slower in Safari/WebKit.
+ */
+function computeSyncDelay(): number {
+  const now = typeof performance !== 'undefined' ? performance.now() : 0
+  return -(now % ANIMATION_DURATION_MS)
+}
 
 export default Spinner

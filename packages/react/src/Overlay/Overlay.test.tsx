@@ -7,7 +7,8 @@ import Overlay from '../Overlay'
 import Text from '../Text'
 import BaseStyles from '../BaseStyles'
 import {NestedOverlays, MemexNestedOverlays, MemexIssueOverlay, PositionedOverlays} from './Overlay.features.stories'
-import {FeatureFlags} from '../FeatureFlags'
+import {implementsClassName} from '../utils/testing'
+import classes from './Overlay.module.css'
 
 type TestComponentSettings = {
   initialFocus?: 'button'
@@ -81,6 +82,18 @@ const TestComponent = ({
 }
 
 describe('Overlay', () => {
+  implementsClassName(props => {
+    const returnFocusRef = useRef<HTMLButtonElement>(null)
+    return (
+      <div>
+        <Button ref={returnFocusRef}>trigger</Button>
+        <Overlay returnFocusRef={returnFocusRef} {...props}>
+          <div>test content</div>
+        </Overlay>
+      </div>
+    )
+  }, classes.Overlay)
+
   it('should focus initialFocusRef element passed into function on open', async () => {
     const user = userEvent.setup()
     const {getByRole} = render(<TestComponent initialFocus="button" />)
@@ -202,7 +215,7 @@ describe('Overlay', () => {
     spy.mockRestore()
   })
 
-  it.skip('should right align when given `right: 0` and `position: fixed`', async () => {
+  it.todo('should right align when given `right: 0` and `position: fixed`', async () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(message => {
       if (!message.startsWith('global handler')) {
         throw new Error(
@@ -228,7 +241,7 @@ describe('Overlay', () => {
     spy.mockRestore()
   })
 
-  it.skip('should left align when not given position and left props', async () => {
+  it.todo('should left align when not given position and left props', async () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(message => {
       if (!message.startsWith('global handler')) {
         throw new Error(
@@ -293,7 +306,7 @@ describe('Overlay', () => {
     expect(container.queryByLabelText('Change issue title')).not.toBeInTheDocument()
   })
 
-  it.skip('memex repro: should not leak overlay events to the document', async () => {
+  it.todo('memex repro: should not leak overlay events to the document', async () => {
     const user = userEvent.setup()
     const mockHandler = vi.fn()
     const BugRepro1802 = () => {
@@ -337,19 +350,5 @@ describe('Overlay', () => {
 
     const container = getByRole('dialog')
     expect(container).not.toHaveAttribute('data-reflow-container')
-  })
-
-  it('should `data-reflow-container` if FF is enabled', async () => {
-    const user = userEvent.setup()
-    const {getByRole} = render(
-      <FeatureFlags flags={{primer_react_overlay_overflow: true}}>
-        <TestComponent />
-      </FeatureFlags>,
-    )
-
-    await user.click(getByRole('button', {name: 'open overlay'}))
-
-    const container = getByRole('dialog')
-    expect(container).toHaveAttribute('data-reflow-container')
   })
 })

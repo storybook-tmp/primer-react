@@ -1,8 +1,7 @@
 import {describe, expect, it, vi} from 'vitest'
 import type React from 'react'
-import {render, screen} from '@testing-library/react'
+import {render, screen, within} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type {IconProps} from '@primer/octicons-react'
 import {
   CodeIcon,
   IssueOpenedIcon,
@@ -14,35 +13,41 @@ import {
 } from '@primer/octicons-react'
 
 import {UnderlineNav} from '.'
+import {implementsClassName, withExpectedConsoleError} from '../utils/testing'
+import classes from '../internal/components/UnderlineTabbedInterface.module.css'
+import {clsx} from 'clsx'
+import {page} from 'vitest/browser'
 
 const ResponsiveUnderlineNav = ({
   selectedItemText = 'Code',
   loadingCounters = false,
   displayExtraEl = false,
+  className,
 }: {
   selectedItemText?: string
   loadingCounters?: boolean
   displayExtraEl?: boolean
+  className?: string
 }) => {
-  const items: {navigation: string; icon?: React.FC<IconProps>; counter?: number}[] = [
-    {navigation: 'Code', icon: CodeIcon},
-    {navigation: 'Issues', icon: IssueOpenedIcon, counter: 120},
-    {navigation: 'Pull Requests', icon: GitPullRequestIcon, counter: 13},
-    {navigation: 'Discussions', icon: CommentDiscussionIcon, counter: 5},
+  const items: {navigation: string; icon?: React.ReactElement; counter?: number}[] = [
+    {navigation: 'Code', icon: <CodeIcon />},
+    {navigation: 'Issues', icon: <IssueOpenedIcon />, counter: 120},
+    {navigation: 'Pull Requests', icon: <GitPullRequestIcon />, counter: 13},
+    {navigation: 'Discussions', icon: <CommentDiscussionIcon />, counter: 5},
     {navigation: 'Actions', counter: 4},
-    {navigation: 'Projects', icon: ProjectIcon, counter: 9},
-    {navigation: 'Insights', icon: GraphIcon},
+    {navigation: 'Projects', icon: <ProjectIcon />, counter: 9},
+    {navigation: 'Insights', icon: <GraphIcon />},
     {navigation: 'Settings', counter: 10},
-    {navigation: 'Security', icon: ShieldLockIcon},
+    {navigation: 'Security', icon: <ShieldLockIcon />},
   ]
 
   return (
     <div>
-      <UnderlineNav aria-label="Repository" className="foo" loadingCounters={loadingCounters}>
+      <UnderlineNav aria-label="Repository" className={clsx('foo', className)} loadingCounters={loadingCounters}>
         {items.map(item => (
           <UnderlineNav.Item
             key={item.navigation}
-            icon={item.icon}
+            leadingVisual={item.icon}
             aria-current={item.navigation === selectedItemText ? 'page' : undefined}
             counter={item.counter}
           >
@@ -56,6 +61,8 @@ const ResponsiveUnderlineNav = ({
 }
 
 describe('UnderlineNav', () => {
+  implementsClassName(ResponsiveUnderlineNav, classes.UnderlineWrapper)
+  implementsClassName(props => <UnderlineNav.Item {...props}>Hi</UnderlineNav.Item>)
   it('renders aria-current attribute to be pages when an item is selected', () => {
     const {getByRole} = render(<ResponsiveUnderlineNav />)
     const selectedNavLink = getByRole('link', {name: 'Code'})
@@ -72,7 +79,8 @@ describe('UnderlineNav', () => {
   it('renders icons correctly', () => {
     const {getByRole} = render(<ResponsiveUnderlineNav />)
     const nav = getByRole('navigation')
-    expect(nav.getElementsByTagName('svg').length).toEqual(7)
+    const list = within(nav).getByRole('list')
+    expect(list.getElementsByTagName('svg').length).toEqual(7)
   })
 
   it('fires onSelect on click', async () => {
@@ -135,9 +143,10 @@ describe('UnderlineNav', () => {
     expect(counter.textContent).toBe('\u00A0(120)')
   })
 
-  it('respects loadingCounters prop', () => {
+  it('respects loadingCounters prop', async () => {
+    await page.viewport(1000, 500)
     const {getByRole} = render(<ResponsiveUnderlineNav loadingCounters={true} />)
-    const item = getByRole('link', {name: 'Actions'})
+    const item = getByRole('link', {name: 'Actions', hidden: true})
     const loadingCounter = item.getElementsByTagName('span')[2]
     expect(loadingCounter.className).toContain('LoadingCounter')
     expect(loadingCounter.textContent).toBe('')
@@ -152,27 +161,28 @@ describe('UnderlineNav', () => {
   })
 
   it('throws an error when there are multiple items that have aria-current', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(() => {
-      render(
-        <UnderlineNav aria-label="Test Navigation">
-          <UnderlineNav.Item aria-current="page">Item 1</UnderlineNav.Item>
-          <UnderlineNav.Item aria-current="page">Item 2</UnderlineNav.Item>
-        </UnderlineNav>,
-      )
-    }).toThrow('Only one current element is allowed')
-    expect(spy).toHaveBeenCalled()
-    spy.mockRestore()
+    withExpectedConsoleError(() => {
+      expect(() => {
+        render(
+          <UnderlineNav aria-label="Test Navigation">
+            <UnderlineNav.Item aria-current="page">Item 1</UnderlineNav.Item>
+            <UnderlineNav.Item aria-current="page">Item 2</UnderlineNav.Item>
+          </UnderlineNav>,
+        )
+      }).toThrow('Only one current element is allowed')
+    })
   })
 
   it('should support icons passed in as an element', () => {
     render(
       <UnderlineNav aria-label="Repository">
-        <UnderlineNav.Item aria-current="page" icon={<CodeIcon aria-label="Page one icon" />}>
+        <UnderlineNav.Item aria-current="page" leadingVisual={<CodeIcon aria-label="Page one icon" />}>
           Page one
         </UnderlineNav.Item>
-        <UnderlineNav.Item icon={<IssueOpenedIcon aria-label="Page two icon" />}>Page two</UnderlineNav.Item>
-        <UnderlineNav.Item icon={<GitPullRequestIcon aria-label="Page three icon" />}>Page three</UnderlineNav.Item>
+        <UnderlineNav.Item leadingVisual={<IssueOpenedIcon aria-label="Page two icon" />}>Page two</UnderlineNav.Item>
+        <UnderlineNav.Item leadingVisual={<GitPullRequestIcon aria-label="Page three icon" />}>
+          Page three
+        </UnderlineNav.Item>
       </UnderlineNav>,
     )
 
@@ -191,11 +201,58 @@ describe('UnderlineNav', () => {
     expect(item).toHaveClass('custom-class')
     expect(item.className).toContain('UnderlineItem')
   })
+
+  it('supports the deprecated `icon` prop', () => {
+    render(
+      <UnderlineNav aria-label="Test">
+        <UnderlineNav.Item icon={<CodeIcon data-testid="jsx-element" />}>as jsx element</UnderlineNav.Item>
+        <UnderlineNav.Item icon={props => <CodeIcon {...props} data-testid="functional-component" />}>
+          as functional component
+        </UnderlineNav.Item>
+      </UnderlineNav>,
+    )
+
+    expect(screen.getByTestId('jsx-element')).toBeInTheDocument()
+    expect(screen.getByTestId('functional-component')).toBeInTheDocument()
+  })
+
+  it('extracts only direct text content for data-content attribute, ignoring nested elements', () => {
+    render(
+      <UnderlineNav aria-label="Test">
+        <UnderlineNav.Item>
+          Tab Label
+          <span style={{position: 'absolute'}}>Hidden element</span>
+        </UnderlineNav.Item>
+      </UnderlineNav>,
+    )
+
+    const item = screen.getByRole('link', {name: /Tab Label/})
+    const textSpan = item.querySelector('[data-component="text"]')
+    // data-content should only have the content of the Text and not the nested span
+    expect(textSpan).toHaveAttribute('data-content', 'Tab Label')
+  })
+
+  it('handles string children correctly for data-content attribute', () => {
+    render(
+      <UnderlineNav aria-label="Test">
+        <UnderlineNav.Item>Simple Text</UnderlineNav.Item>
+      </UnderlineNav>,
+    )
+
+    const item = screen.getByRole('link', {name: 'Simple Text'})
+    const textSpan = item.querySelector('[data-component="text"]')
+    expect(textSpan).toHaveAttribute('data-content', 'Simple Text')
+  })
 })
 
 describe('Keyboard Navigation', () => {
   it('should move focus to the next/previous item on the list with the tab key', async () => {
-    const {getByRole} = render(<ResponsiveUnderlineNav />)
+    const {getByRole} = render(
+      <UnderlineNav aria-label="Repository">
+        <UnderlineNav.Item aria-current="page">Code</UnderlineNav.Item>
+        <UnderlineNav.Item counter={120}>Issues</UnderlineNav.Item>
+      </UnderlineNav>,
+    )
     const item = getByRole('link', {name: 'Code'})
     const nextItem = getByRole('link', {name: 'Issues (120)'})
     const user = userEvent.setup()

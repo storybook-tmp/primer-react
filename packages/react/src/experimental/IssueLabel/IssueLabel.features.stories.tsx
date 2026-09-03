@@ -1,7 +1,7 @@
-import {IssueLabel} from '../IssueLabel'
 import type {Meta} from '@storybook/react-vite'
-import {Stack} from '../../Stack'
 import {action} from 'storybook/actions'
+import {IssueLabel} from '../IssueLabel'
+import {Stack} from '../../Stack'
 
 const meta = {
   title: 'Experimental/Components/IssueLabel/Features',

@@ -22,6 +22,7 @@ import {
 import Octicon from '../Octicon'
 import VisuallyHidden from '../_VisuallyHidden'
 import {ReactRouterLikeLink} from '../Pagination/mocks/ReactRouterLink'
+import {FeatureFlags} from '../FeatureFlags'
 
 const meta: Meta = {
   title: 'Components/NavList/Features',
@@ -118,7 +119,8 @@ export const WithReactRouterLink = () => (
 type NextJSLinkProps = {href: string; children: React.ReactNode}
 
 const NextJSLikeLink = React.forwardRef<HTMLAnchorElement, NextJSLinkProps>(
-  ({href, children}, ref): React.ReactElement => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ({href, children}, ref): React.ReactElement<any> => {
     const child = React.Children.only(children)
     const childProps = {
       ref,
@@ -574,5 +576,118 @@ export const GroupWithExpandAndCustomItems = () => {
     </NavList>
   )
 }
+
+export const WithDescription: StoryFn = () => (
+  <NavList>
+    <NavList.Item href="#" aria-current="page">
+      <NavList.LeadingVisual>
+        <RepoIcon />
+      </NavList.LeadingVisual>
+      Main Repository
+      <NavList.Description>Primary project repository</NavList.Description>
+    </NavList.Item>
+    <NavList.Item href="#">
+      <NavList.LeadingVisual>
+        <BookIcon />
+      </NavList.LeadingVisual>
+      Documentation
+      <NavList.Description>User guides and API documentation</NavList.Description>
+    </NavList.Item>
+    <NavList.Item href="#">
+      <NavList.LeadingVisual>
+        <IssueOpenedIcon />
+      </NavList.LeadingVisual>
+      Bug Reports
+      <NavList.Description variant="block">
+        Submit and track bug reports for the project. Include detailed steps to reproduce, expected behavior, and system
+        information.
+      </NavList.Description>
+    </NavList.Item>
+    <NavList.Item href="#">
+      <NavList.LeadingVisual>
+        <PeopleIcon />
+      </NavList.LeadingVisual>
+      Community
+      <NavList.Description variant="block">
+        Connect with other developers, share ideas, and collaborate on features and improvements.
+      </NavList.Description>
+    </NavList.Item>
+    <NavList.Item href="#">
+      <NavList.LeadingVisual>
+        <GitCommitIcon />
+      </NavList.LeadingVisual>
+      Recent Changes
+      <NavList.Description>Latest commits and releases</NavList.Description>
+    </NavList.Item>
+  </NavList>
+)
+
+export const WithItemGap: StoryFn = () => (
+  <FeatureFlags flags={{primer_react_action_list_item_gap: true}}>
+    <PageLayout>
+      <PageLayout.Pane position="start">
+        <NavList>
+          <NavList.Item href="#" aria-current="page">
+            Home
+          </NavList.Item>
+          <NavList.Item defaultOpen href="#">
+            About
+            <NavList.SubNav>
+              <NavList.Item href="#">Team</NavList.Item>
+              <NavList.Item href="#">History</NavList.Item>
+            </NavList.SubNav>
+          </NavList.Item>
+          <NavList.Item href="#">Contact</NavList.Item>
+        </NavList>
+      </PageLayout.Pane>
+    </PageLayout>
+  </FeatureFlags>
+)
+
+WithItemGap.storyName = 'With gap between items (behind feature flag)'
+
+export const WithHeading: StoryFn = () => (
+  <PageLayout>
+    <PageLayout.Pane position="start">
+      <NavList>
+        <NavList.Heading>Settings</NavList.Heading>
+        <NavList.Group title="Account">
+          <NavList.Item href="#" aria-current="page">
+            Profile
+          </NavList.Item>
+          <NavList.Item href="#">Appearance</NavList.Item>
+        </NavList.Group>
+        <NavList.Group title="Security">
+          <NavList.Item href="#">Password and authentication</NavList.Item>
+          <NavList.Item href="#">Sessions</NavList.Item>
+        </NavList.Group>
+      </NavList>
+    </PageLayout.Pane>
+    <PageLayout.Content></PageLayout.Content>
+  </PageLayout>
+)
+
+export const WithVisuallyHiddenHeading: StoryFn = () => (
+  <PageLayout>
+    <PageLayout.Pane position="start">
+      <NavList>
+        <NavList.Heading visuallyHidden>Settings</NavList.Heading>
+        <NavList.Group title="Account">
+          <NavList.Item href="#" aria-current="page">
+            Profile
+          </NavList.Item>
+          <NavList.Item href="#">Appearance</NavList.Item>
+        </NavList.Group>
+        <NavList.Group title="Security">
+          <NavList.Item href="#">Password and authentication</NavList.Item>
+          <NavList.Item href="#">Sessions</NavList.Item>
+        </NavList.Group>
+      </NavList>
+    </PageLayout.Pane>
+    <PageLayout.Content></PageLayout.Content>
+  </PageLayout>
+)
+
+WithVisuallyHiddenHeading.storyName = 'With Heading (hidden)'
 
 export default meta

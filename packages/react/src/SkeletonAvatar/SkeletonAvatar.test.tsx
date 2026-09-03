@@ -2,8 +2,17 @@ import {render} from '@testing-library/react'
 import {describe, expect, it} from 'vitest'
 import {SkeletonAvatar} from '../SkeletonAvatar'
 import {DEFAULT_AVATAR_SIZE} from '../Avatar/Avatar'
+import {implementsClassName} from '../utils/testing'
+import classes from './SkeletonAvatar.module.css'
 
 describe('SkeletonAvatar', () => {
+  implementsClassName(SkeletonAvatar, classes.SkeletonAvatar)
+
+  it('renders data-component attribute', () => {
+    const {container} = render(<SkeletonAvatar />)
+    expect(container.firstChild).toHaveAttribute('data-component', 'SkeletonAvatar')
+  })
+
   it('applies the given size', () => {
     const {container} = render(<SkeletonAvatar size={48} />)
     expect(container.firstChild).toHaveStyle('--avatarSize-regular: 48px;')

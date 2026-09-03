@@ -6,6 +6,9 @@ import type {AutocompleteInputProps} from '../Autocomplete'
 import Autocomplete from '../Autocomplete'
 import type {AutocompleteMenuInternalProps, AutocompleteMenuItem} from '../Autocomplete/AutocompleteMenu'
 import BaseStyles from '../BaseStyles'
+import {implementsClassName} from '../utils/testing'
+import classes from './AutocompleteOverlay.module.css'
+import {AutocompleteContext} from './AutocompleteContext'
 
 const mockItems = [
   {text: 'zero', id: '0'},
@@ -47,6 +50,29 @@ const LabelledAutocomplete = <T extends AutocompleteMenuItem>({
 
 describe('Autocomplete', () => {
   describe('Autocomplete.Input', () => {
+    implementsClassName(props => (
+      <Autocomplete>
+        <Autocomplete.Input {...props} />
+      </Autocomplete>
+    ))
+
+    it('renders data-component attributes for Autocomplete parts when menu is shown', async () => {
+      const user = userEvent.setup()
+      const {container} = render(
+        <LabelledAutocomplete
+          menuProps={{items: mockItems, selectedItemIds: [], ['aria-labelledby']: 'autocompleteLabel'}}
+        />,
+      )
+
+      const input = container.querySelector('#autocompleteInput') as HTMLInputElement
+      expect(input).toHaveAttribute('data-component', 'Autocomplete.Input')
+
+      await user.type(input, 'z')
+
+      expect(container.querySelector('[data-component="Autocomplete.Overlay"]')).toBeInTheDocument()
+      expect(container.querySelector('[data-component="Autocomplete.Menu"]')).toBeInTheDocument()
+    })
+
     it('calls onChange', async () => {
       const user = userEvent.setup()
       const onChangeMock = vi.fn()
@@ -147,9 +173,11 @@ describe('Autocomplete', () => {
 
       expect(inputNode.getAttribute('aria-expanded')).toBe('true')
 
-      await userEvent.tab()
+      // `userEvent.tab()` is unreliable in browser-mode Vitest for this case; blur is deterministic.
+      // eslint-disable-next-line github/no-blur
+      fireEvent.blur(inputNode)
 
-      expect(inputNode.getAttribute('aria-expanded')).not.toBe('true')
+      await waitFor(() => expect(inputNode.getAttribute('aria-expanded')).not.toBe('true'))
     })
 
     it('sets the input value to the suggested item text and highlights the untyped part of the word', async () => {
@@ -204,6 +232,30 @@ describe('Autocomplete', () => {
       expect(inputNode?.getAttribute('aria-expanded')).not.toBe('true')
     })
 
+    it('does not restore the autocomplete suggestion when the input is blurred', async () => {
+      const user = userEvent.setup()
+      const {container} = render(
+        <>
+          <LabelledAutocomplete
+            menuProps={{items: mockItems, selectedItemIds: [], ['aria-labelledby']: 'autocompleteLabel'}}
+          />
+          <button type="button">outside</button>
+        </>,
+      )
+      const inputNode = container.querySelector('#autocompleteInput') as HTMLInputElement
+      const outsideButton = screen.getByRole('button', {name: 'outside'})
+
+      // Type 'ze' which gets the inline autocomplete suggestion 'zero'
+      await user.type(inputNode, 'ze')
+      expect(inputNode.value).toBe('zero')
+
+      // Move focus elsewhere on the page, like clicking outside the Autocomplete
+      await user.click(outsideButton)
+
+      // The input should retain the text the user typed rather than the full suggestion
+      await waitFor(() => expect(inputNode.value).toBe('ze'))
+    })
+
     it('allows the value to be 0', () => {
       const {getByDisplayValue} = render(
         <LabelledAutocomplete
@@ -213,15 +265,6 @@ describe('Autocomplete', () => {
       )
 
       expect(getByDisplayValue('0')).toBeDefined()
-    })
-
-    it('should support `className` on the outermost element', () => {
-      const Element = () => (
-        <Autocomplete>
-          <Autocomplete.Input className={'test-class-name'} />
-        </Autocomplete>
-      )
-      expect(render(<Element />).container.firstChild).toHaveClass('test-class-name')
     })
   })
 
@@ -443,24 +486,32 @@ describe('Autocomplete', () => {
       expect(screen.getByText('Three')).toBeInTheDocument()
     })
   })
-
   describe('Autocomplete.Overlay', () => {
-    it('should support `className` on the outermost element', async () => {
-      const Element = ({className}: {className: string}) => (
-        <Autocomplete id="autocompleteId">
-          <Autocomplete.Input />
-          <Autocomplete.Overlay className={className} visibility="visible">
-            hi
-          </Autocomplete.Overlay>
-        </Autocomplete>
+    implementsClassName(props => {
+      // Create a context with showMenu set to true
+      const mockContext = {
+        activeDescendantRef: {current: null},
+        autocompleteSuggestion: '',
+        id: 'test-id',
+        inputRef: {current: document.createElement('input')},
+        inputValue: '',
+        isMenuDirectlyActivated: false,
+        scrollContainerRef: {current: null},
+        selectedItemLength: 0,
+        setAutocompleteSuggestion: () => {},
+        setInputValue: () => {},
+        setIsMenuDirectlyActivated: () => {},
+        setSelectedItemLength: () => {},
+        setShowMenu: () => {},
+        showMenu: true, // Force the menu to show
+      }
+
+      return (
+        <AutocompleteContext.Provider value={mockContext}>
+          <Autocomplete.Overlay {...props}>hi</Autocomplete.Overlay>
+        </AutocompleteContext.Provider>
       )
-      const {container: elementContainer, getByRole} = render(<Element className="test-class-name" />)
-      const inputNode = getByRole('combobox')
-      await userEvent.click(inputNode)
-      await userEvent.keyboard('{ArrowDown}')
-      // overlay is a sibling of elementContainer
-      expect(elementContainer.parentElement?.querySelectorAll('.test-class-name')).toHaveLength(1)
-    })
+    }, classes.Overlay)
   })
 
   describe('null context', () => {

@@ -1,7 +1,9 @@
 #!/bin/bash
 
+set -e
+
 # Build the package
-npx rollup -c
+npx rolldown -c
 
 # Generate components.json
 ./script/generate-components-json

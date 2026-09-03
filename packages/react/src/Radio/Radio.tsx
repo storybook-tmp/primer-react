@@ -1,6 +1,6 @@
 import type {ChangeEventHandler, InputHTMLAttributes, ReactElement} from 'react'
 import React, {useContext} from 'react'
-import {RadioGroupContext} from '../RadioGroup/RadioGroup'
+import {RadioGroupContext} from '../RadioGroup/RadioGroupContext'
 import {clsx} from 'clsx'
 import sharedClasses from '../Checkbox/shared.module.css'
 import classes from './Radio.module.css'
@@ -51,7 +51,8 @@ const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
       ...rest
     }: RadioProps,
     ref,
-  ): ReactElement => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): ReactElement<any> => {
     const radioGroupContext = useContext(RadioGroupContext)
     const handleOnChange: ChangeEventHandler<HTMLInputElement> = e => {
       radioGroupContext?.onChange && radioGroupContext.onChange(e)
@@ -79,6 +80,7 @@ const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
         onChange={handleOnChange}
         className={clsx(className, sharedClasses.Input, classes.Radio)}
         {...rest}
+        data-component="Radio"
       />
     )
   },

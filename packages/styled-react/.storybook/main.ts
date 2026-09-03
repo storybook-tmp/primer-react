@@ -1,0 +1,87 @@
+import {fileURLToPath} from 'node:url'
+import {dirname} from 'node:path'
+import type {StorybookConfig} from '@storybook/react-vite'
+import babel from '@rolldown/plugin-babel'
+
+import react, {reactCompilerPreset} from '@vitejs/plugin-react'
+import postcssPresetPrimer from 'postcss-preset-primer'
+
+const {DEPLOY_ENV = 'development'} = process.env
+const STORYBOOK_ALLOWED_HOSTS = ['localhost', 'host.docker.internal']
+
+const config: StorybookConfig = {
+  stories: ['../src/**/*.stories.tsx'],
+
+  addons: [
+    {
+      name: getAbsolutePath('@storybook/addon-mcp'),
+      options: {
+        toolsets: {
+          dev: true,
+        },
+      },
+    },
+  ],
+
+  framework: {
+    name: getAbsolutePath('@storybook/react-vite'),
+    options: {
+      strictMode: true,
+    },
+  },
+
+  core: {
+    allowedHosts: STORYBOOK_ALLOWED_HOSTS,
+  },
+
+  async viteFinal(config) {
+    if (!config.css) {
+      config.css = {}
+    }
+
+    if (!config.css.modules) {
+      config.css.modules = {}
+    }
+
+    config.css.modules.generateScopedName = 'prc-[folder]-[local]-[hash:base64:5]'
+
+    if (!config.css.postcss) {
+      config.css.postcss = {}
+    }
+
+    if (typeof config.css.postcss !== 'string') {
+      config.css.postcss.plugins = [postcssPresetPrimer()]
+    }
+
+    config.plugins = [
+      ...(config.plugins ?? []),
+      react(),
+      babel({
+        presets: [
+          reactCompilerPreset({
+            target: '18',
+          }),
+        ],
+      }),
+    ]
+
+    if (DEPLOY_ENV === 'development') {
+      config.server = {
+        ...config.server,
+        allowedHosts: STORYBOOK_ALLOWED_HOSTS,
+      }
+    }
+
+    return config
+  },
+
+  features: {
+    backgrounds: false,
+  },
+}
+
+export default config
+
+function getAbsolutePath(value: string): any {
+  return dirname(fileURLToPath(import.meta.resolve(`${value}/package.json`)))
+}

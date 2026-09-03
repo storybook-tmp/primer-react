@@ -1,23 +1,53 @@
 import Breadcrumbs from '..'
-import {render as HTMLRender, screen, waitFor, within} from '@testing-library/react'
+import {act, fireEvent, render as HTMLRender, screen, waitFor, within} from '@testing-library/react'
 import {describe, expect, it, vi} from 'vitest'
 import userEvent from '@testing-library/user-event'
+import {FeatureFlags} from '../../FeatureFlags'
+import {implementsClassName} from '../../utils/testing'
+import classes from '../Breadcrumbs.module.css'
+import Link from '../../Link'
+
+// Helper function to render with theme and feature flags
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const renderWithTheme = (component: React.ReactElement<any>, flags?: Record<string, boolean>) => {
+  const wrappedComponent = flags ? <FeatureFlags flags={flags}>{component}</FeatureFlags> : <>{component}</>
+  return HTMLRender(wrappedComponent)
+}
 
 // Mock ResizeObserver for tests
 const mockObserve = vi.fn()
 const mockUnobserve = vi.fn()
 const mockDisconnect = vi.fn()
 
-globalThis.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: mockObserve,
-  unobserve: mockUnobserve,
-  disconnect: mockDisconnect,
-}))
+globalThis.ResizeObserver = vi.fn().mockImplementation(function () {
+  return {
+    observe: mockObserve,
+    unobserve: mockUnobserve,
+    disconnect: mockDisconnect,
+  }
+})
 
 describe('Breadcrumbs', () => {
+  implementsClassName(Breadcrumbs, classes.BreadcrumbsBase)
+
   it('renders a <nav>', () => {
     const {container} = HTMLRender(<Breadcrumbs />)
     expect(container.firstChild?.nodeName).toEqual('NAV')
+  })
+
+  it('renders data-component attributes', () => {
+    const {container} = renderWithTheme(
+      <Breadcrumbs overflow="wrap">
+        <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/docs">Docs</Breadcrumbs.Item>
+      </Breadcrumbs>,
+    )
+
+    expect(container.querySelector('[data-component="Breadcrumbs"]')).toBeInTheDocument()
+
+    expect(
+      container.querySelector('[data-component="Breadcrumbs"] [data-component="Breadcrumbs.Item"]'),
+    ).toBeInTheDocument()
   })
 
   it('renders breadcrumb items correctly', () => {
@@ -51,25 +81,27 @@ describe('Breadcrumbs', () => {
   })
 
   it('sets data-overflow attribute when overflow is menu', () => {
-    const {container} = HTMLRender(
+    const {container} = renderWithTheme(
       <Breadcrumbs overflow="menu">
         <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
       </Breadcrumbs>,
     )
+
     expect(container.firstChild).toHaveAttribute('data-overflow', 'menu')
   })
 
   it('sets data-overflow attribute when overflow is wrap', () => {
-    const {container} = HTMLRender(
+    const {container} = renderWithTheme(
       <Breadcrumbs overflow="wrap">
         <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
       </Breadcrumbs>,
     )
+
     expect(container.firstChild).toHaveAttribute('data-overflow', 'wrap')
   })
 
   it('renders all items when overflow is wrap', () => {
-    HTMLRender(
+    renderWithTheme(
       <Breadcrumbs overflow="wrap">
         <Breadcrumbs.Item href="/1">Item 1</Breadcrumbs.Item>
         <Breadcrumbs.Item href="/2">Item 2</Breadcrumbs.Item>
@@ -90,7 +122,7 @@ describe('Breadcrumbs', () => {
   })
 
   it('shows overflow menu when more than 5 items in menu mode', () => {
-    HTMLRender(
+    renderWithTheme(
       <Breadcrumbs overflow="menu">
         <Breadcrumbs.Item href="/1">Item 1</Breadcrumbs.Item>
         <Breadcrumbs.Item href="/2">Item 2</Breadcrumbs.Item>
@@ -111,9 +143,50 @@ describe('Breadcrumbs', () => {
     expect(screen.getByText('Item 6')).toBeInTheDocument()
   })
 
+  it('updates overflow menu items when children change with same item count', async () => {
+    const user = userEvent.setup()
+    const {rerender} = renderWithTheme(
+      <Breadcrumbs overflow="menu">
+        <Breadcrumbs.Item href="/home">Old Home</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/category">Old Category</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/subcategory">Subcategory</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/product">Product</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/details">Details</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/reviews">Reviews</Breadcrumbs.Item>
+      </Breadcrumbs>,
+    )
+
+    const menuButton = screen.getByRole('button', {name: /more breadcrumb items/i})
+    await user.click(menuButton)
+
+    const oldMenu = menuButton.closest('details')
+    expect(oldMenu).not.toBeNull()
+    expect(within(oldMenu!).getByRole('link', {name: 'Old Home'})).toBeInTheDocument()
+
+    await user.click(menuButton)
+
+    rerender(
+      <Breadcrumbs overflow="menu">
+        <Breadcrumbs.Item href="/new-home">New Home</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/new-category">New Category</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/subcategory">Subcategory</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/product">Product</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/details">Details</Breadcrumbs.Item>
+        <Breadcrumbs.Item href="/reviews">Reviews</Breadcrumbs.Item>
+      </Breadcrumbs>,
+    )
+
+    await user.click(screen.getByRole('button', {name: /more breadcrumb items/i}))
+
+    const updatedMenu = screen.getByRole('button', {name: /more breadcrumb items/i}).closest('details')
+    expect(updatedMenu).not.toBeNull()
+    expect(within(updatedMenu!).getByRole('link', {name: 'New Home'})).toBeInTheDocument()
+    expect(within(updatedMenu!).queryByRole('link', {name: 'Old Home'})).not.toBeInTheDocument()
+  })
+
   it('show root in menu', () => {
     expect(() => {
-      HTMLRender(
+      renderWithTheme(
         <Breadcrumbs overflow="menu-with-root">
           <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
           <Breadcrumbs.Item href="/docs">Docs</Breadcrumbs.Item>
@@ -125,7 +198,7 @@ describe('Breadcrumbs', () => {
   it('includes root item in overflow menu when overflow is menu-with-root', async () => {
     const user = userEvent.setup()
 
-    HTMLRender(
+    renderWithTheme(
       <Breadcrumbs overflow="menu-with-root">
         <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
         <Breadcrumbs.Item href="/category">Category</Breadcrumbs.Item>
@@ -147,7 +220,7 @@ describe('Breadcrumbs', () => {
     await user.click(menuButton)
 
     // Find the <details> element that contains the overflow menu
-    const detailsEl = menuButton.closest('details') as HTMLElement | null
+    const detailsEl = menuButton.closest('details')
     expect(detailsEl).not.toBeNull()
     const detailsScope = within(detailsEl!)
 
@@ -171,7 +244,7 @@ describe('Breadcrumbs', () => {
   })
 
   it('renders accessible overflow menu', () => {
-    HTMLRender(
+    renderWithTheme(
       <Breadcrumbs overflow="menu">
         <Breadcrumbs.Item href="/1">Item 1</Breadcrumbs.Item>
         <Breadcrumbs.Item href="/2">Item 2</Breadcrumbs.Item>
@@ -189,7 +262,7 @@ describe('Breadcrumbs', () => {
   it('shows overflow menu during resize when items exceed container width', () => {
     let resizeCallback: ((entries: ResizeObserverEntry[]) => void) | undefined
 
-    const mockResizeObserver = vi.fn().mockImplementation(callback => {
+    const mockResizeObserver = vi.fn().mockImplementation(function (callback) {
       resizeCallback = callback
       return {
         observe: mockObserve,
@@ -199,7 +272,7 @@ describe('Breadcrumbs', () => {
     })
     globalThis.ResizeObserver = mockResizeObserver
 
-    HTMLRender(
+    renderWithTheme(
       <Breadcrumbs overflow="menu">
         <Breadcrumbs.Item href="/1">Item 1</Breadcrumbs.Item>
         <Breadcrumbs.Item href="/2">Item 2</Breadcrumbs.Item>
@@ -217,11 +290,14 @@ describe('Breadcrumbs', () => {
 
     // Simulate a wide container resize
     if (resizeCallback) {
-      resizeCallback([
-        {
-          contentRect: {width: 800, height: 40},
-        } as ResizeObserverEntry,
-      ])
+      const callback = resizeCallback
+      act(() => {
+        callback([
+          {
+            contentRect: {width: 800, height: 40},
+          } as ResizeObserverEntry,
+        ])
+      })
     }
 
     // Should still have overflow menu for 6 items (>5 rule)
@@ -229,11 +305,14 @@ describe('Breadcrumbs', () => {
 
     // Simulate a narrow container resize
     if (resizeCallback) {
-      resizeCallback([
-        {
-          contentRect: {width: 250, height: 40},
-        } as ResizeObserverEntry,
-      ])
+      const callback = resizeCallback
+      act(() => {
+        callback([
+          {
+            contentRect: {width: 250, height: 40},
+          } as ResizeObserverEntry,
+        ])
+      })
     }
 
     // Should maintain overflow menu for narrow container
@@ -246,7 +325,7 @@ describe('Breadcrumbs', () => {
   it('correctly populates overflow menu during resize events', async () => {
     let resizeCallback: ((entries: ResizeObserverEntry[]) => void) | undefined
 
-    const mockResizeObserver = vi.fn().mockImplementation(callback => {
+    const mockResizeObserver = vi.fn().mockImplementation(function (callback) {
       resizeCallback = callback
       return {
         observe: mockObserve,
@@ -258,7 +337,7 @@ describe('Breadcrumbs', () => {
 
     const user = userEvent.setup()
 
-    HTMLRender(
+    renderWithTheme(
       <Breadcrumbs overflow="menu">
         <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
         <Breadcrumbs.Item href="/category">Category</Breadcrumbs.Item>
@@ -294,15 +373,20 @@ describe('Breadcrumbs', () => {
 
     // Close menu by clicking outside
     await user.click(document.body)
-    await waitFor(() => {})
+    await waitFor(() => {
+      expect
+    })
 
     // Simulate a very narrow container resize that would affect overflow calculation
     if (resizeCallback) {
-      resizeCallback([
-        {
-          contentRect: {width: 200, height: 40},
-        } as ResizeObserverEntry,
-      ])
+      const callback = resizeCallback
+      act(() => {
+        callback([
+          {
+            contentRect: {width: 200, height: 40},
+          } as ResizeObserverEntry,
+        ])
+      })
     }
 
     // Menu button should still be present
@@ -310,11 +394,14 @@ describe('Breadcrumbs', () => {
 
     // Simulate a very wide container resize
     if (resizeCallback) {
-      resizeCallback([
-        {
-          contentRect: {width: 1200, height: 40},
-        } as ResizeObserverEntry,
-      ])
+      const callback = resizeCallback
+      act(() => {
+        callback([
+          {
+            contentRect: {width: 1200, height: 40},
+          } as ResizeObserverEntry,
+        ])
+      })
     }
 
     // Menu button should still be present (7 items > 5)
@@ -341,7 +428,7 @@ describe('Breadcrumbs', () => {
     it('closes menu on Escape key press', async () => {
       const user = userEvent.setup()
 
-      HTMLRender(
+      renderWithTheme(
         <Breadcrumbs overflow="menu">
           <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
           <Breadcrumbs.Item href="/docs">Docs</Breadcrumbs.Item>
@@ -366,7 +453,7 @@ describe('Breadcrumbs', () => {
       })
 
       // Press Escape key
-      await user.keyboard('{Escape}') // sometimes tooltip swallows this escape
+      fireEvent.keyDown(document, {key: 'Escape', code: 'Escape', keyCode: 27, charCode: 27})
 
       // Verify menu is closed
       await waitFor(() => {
@@ -377,7 +464,7 @@ describe('Breadcrumbs', () => {
     it('closes menu when clicking outside', async () => {
       const user = userEvent.setup()
 
-      HTMLRender(
+      renderWithTheme(
         <div>
           <button type="button" data-testid="outside-button">
             Outside Button
@@ -417,7 +504,7 @@ describe('Breadcrumbs', () => {
     it('allows tab navigation through menu items', async () => {
       const user = userEvent.setup()
 
-      HTMLRender(
+      renderWithTheme(
         <Breadcrumbs overflow="menu">
           <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
           <Breadcrumbs.Item href="/docs">Docs</Breadcrumbs.Item>
@@ -456,7 +543,7 @@ describe('Breadcrumbs', () => {
     it('maintains focus on menu button when menu is closed', async () => {
       const user = userEvent.setup()
 
-      HTMLRender(
+      renderWithTheme(
         <Breadcrumbs overflow="menu">
           <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
           <Breadcrumbs.Item href="/docs">Docs</Breadcrumbs.Item>
@@ -472,7 +559,9 @@ describe('Breadcrumbs', () => {
       const menuButton = screen.getByRole('button', {name: /more breadcrumb items/i})
 
       // Focus the menu button
-      menuButton.focus()
+      act(() => {
+        menuButton.focus()
+      })
       expect(menuButton).toHaveFocus()
 
       // Open menu with Enter key
@@ -484,7 +573,7 @@ describe('Breadcrumbs', () => {
       })
 
       // Close with Escape
-      await user.keyboard('{Escape}')
+      fireEvent.keyDown(document, {key: 'Escape', code: 'Escape', keyCode: 27, charCode: 27})
 
       // Verify focus returns to button
       expect(menuButton).toHaveFocus()
@@ -493,7 +582,7 @@ describe('Breadcrumbs', () => {
 
   describe('variant prop', () => {
     it('sets data-variant="normal" by default', () => {
-      const {container} = HTMLRender(
+      const {container} = renderWithTheme(
         <Breadcrumbs overflow="menu">
           <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
           <Breadcrumbs.Item href="/docs" selected>
@@ -505,7 +594,7 @@ describe('Breadcrumbs', () => {
     })
 
     it('sets data-variant="spacious" when variant prop provided', () => {
-      const {container} = HTMLRender(
+      const {container} = renderWithTheme(
         <Breadcrumbs overflow="menu" variant="spacious">
           <Breadcrumbs.Item href="/home">Home</Breadcrumbs.Item>
           <Breadcrumbs.Item href="/docs" selected>
@@ -514,6 +603,68 @@ describe('Breadcrumbs', () => {
         </Breadcrumbs>,
       )
       expect(container.firstChild).toHaveAttribute('data-variant', 'spacious')
+    })
+  })
+
+  describe('as prop', () => {
+    it('supports polymorphic Breadcrumbs.Item with as prop', () => {
+      renderWithTheme(
+        <Breadcrumbs>
+          <Breadcrumbs.Item as="span">Home</Breadcrumbs.Item>
+          <Breadcrumbs.Item as="span" selected>
+            Docs
+          </Breadcrumbs.Item>
+        </Breadcrumbs>,
+      )
+
+      const homeItem = screen.getByText('Home')
+      const docsItem = screen.getByText('Docs')
+
+      expect(homeItem.nodeName).toEqual('SPAN')
+      expect(docsItem.nodeName).toEqual('SPAN')
+    })
+
+    it('passes through additional props to the element specified by as', () => {
+      renderWithTheme(
+        <Breadcrumbs>
+          <Breadcrumbs.Item as={Link} href="/home" data-testid="home-link" inline>
+            Home
+          </Breadcrumbs.Item>
+        </Breadcrumbs>,
+      )
+
+      const homeLink = screen.getByTestId('home-link')
+      expect(homeLink).toHaveAttribute('href', '/home')
+      expect(homeLink).toHaveAttribute('data-inline', 'true')
+    })
+
+    it('passes through additional props to the element specified by as in overflow menu', async () => {
+      const user = userEvent.setup()
+
+      renderWithTheme(
+        <Breadcrumbs overflow="menu">
+          <Breadcrumbs.Item as={Link} href="/home" data-testid="home-link" inline>
+            Home
+          </Breadcrumbs.Item>
+          <Breadcrumbs.Item href="/docs">Docs</Breadcrumbs.Item>
+          <Breadcrumbs.Item href="/components">Components</Breadcrumbs.Item>
+          <Breadcrumbs.Item href="/breadcrumbs">Breadcrumbs</Breadcrumbs.Item>
+          <Breadcrumbs.Item href="/examples">Examples</Breadcrumbs.Item>
+          <Breadcrumbs.Item href="/advanced" selected>
+            Advanced
+          </Breadcrumbs.Item>
+        </Breadcrumbs>,
+      )
+
+      // Open the overflow menu
+      const menuButton = screen.getByRole('button', {name: /more breadcrumb items/i})
+      await user.click(menuButton)
+
+      // Verify the custom link in the overflow menu has the correct href
+      await waitFor(() => {
+        const homeLink = screen.getByTestId('home-link')
+        expect(homeLink).toHaveAttribute('href', '/home')
+      })
     })
   })
 })

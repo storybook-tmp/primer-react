@@ -1,6 +1,7 @@
 import path from 'node:path'
 import react from '@vitejs/plugin-react'
-import {defineConfig} from 'vitest/config'
+import {playwright} from '@vitest/browser-playwright'
+import {defineConfig} from '@primer/vitest-config/config'
 
 export default defineConfig({
   plugins: [react()],
@@ -8,6 +9,7 @@ export default defineConfig({
     __DEV__: true,
   },
   resolve: {
+    dedupe: ['react', 'react-dom'],
     alias: [
       {
         find: '@primer/react/experimental',
@@ -28,7 +30,7 @@ export default defineConfig({
     include: ['src/**/*.browser.test.?(c|m)[jt]s?(x)'],
     setupFiles: ['config/vitest/browser/setup.ts'],
     browser: {
-      provider: 'playwright',
+      provider: playwright(),
       enabled: true,
       headless: process.env.DEBUG_BROWSER_TESTS === 'true' ? false : true,
       instances: [

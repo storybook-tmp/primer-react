@@ -1,6 +1,10 @@
-import react from '@vitejs/plugin-react'
-import {defineConfig} from 'vitest/config'
+import babel from '@rolldown/plugin-babel'
+
+import react, {reactCompilerPreset} from '@vitejs/plugin-react'
+import {playwright} from '@vitest/browser-playwright'
+import {defineConfig} from '@primer/vitest-config/config'
 import postcssPresetPrimer from 'postcss-preset-primer'
+import {isSupported} from './script/react-compiler.mjs'
 
 export default defineConfig({
   css: {
@@ -11,7 +15,20 @@ export default defineConfig({
       plugins: [postcssPresetPrimer()],
     },
   },
-  plugins: [react()],
+  plugins: [
+    react(),
+    babel({
+      presets: [
+        reactCompilerPreset({
+          target: '18',
+          sources: isSupported,
+        }),
+      ],
+    }),
+  ],
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
   define: {
     __DEV__: true,
     'process.env.CI': JSON.stringify(process.env.CI),
@@ -21,8 +38,6 @@ export default defineConfig({
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
-      '**/lib-esm/**',
-      '**/lib/**',
       '**/generated/**',
       '**/*.figma.tsx',
       '**/*.types.test.ts',
@@ -36,7 +51,7 @@ export default defineConfig({
       include: [/.+/],
     },
     browser: {
-      provider: 'playwright',
+      provider: playwright(),
       enabled: true,
       headless: process.env.DEBUG_BROWSER_TESTS === 'true' ? false : true,
       instances: [

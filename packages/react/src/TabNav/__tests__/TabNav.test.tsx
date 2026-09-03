@@ -3,8 +3,11 @@ import TabNav from '..'
 import {render, screen} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {Button} from '../../Button'
+import {implementsClassName} from '../../utils/testing'
+import classes from '../TabNav.module.css'
 
 describe('TabNav', () => {
+  implementsClassName(TabNav)
   const tabNavMarkup = (
     <div>
       <TabNav>
@@ -24,10 +27,22 @@ describe('TabNav', () => {
   )
 
   describe('TabNav.Link', () => {
+    implementsClassName(TabNav.Link, classes.TabNavLink)
     it('renders without crashing', () => {
       render(<TabNav.Link href="#">Link Text</TabNav.Link>)
       expect(screen.getByText('Link Text')).toBeInTheDocument()
     })
+  })
+
+  it('renders data-component attributes', () => {
+    render(
+      <TabNav>
+        <TabNav.Link href="#">Link Text</TabNav.Link>
+      </TabNav>,
+    )
+
+    expect(screen.getByRole('navigation').parentElement).toHaveAttribute('data-component', 'TabNav')
+    expect(screen.getByRole('tab')).toHaveAttribute('data-component', 'TabNav.Link')
   })
 
   it('sets aria-label appropriately', () => {

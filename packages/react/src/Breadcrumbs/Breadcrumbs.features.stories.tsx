@@ -36,7 +36,7 @@ export const OverflowMenu = () => (
   </Breadcrumbs>
 )
 
-export const OverflowMenuShowRoot = () => (
+export const OverflowMenuWithRoot = () => (
   <Breadcrumbs overflow="menu-with-root">
     <Breadcrumbs.Item href="#">github</Breadcrumbs.Item>
     <Breadcrumbs.Item href="#">Teams</Breadcrumbs.Item>
@@ -71,6 +71,24 @@ export const SpaciousVariantWithOverflowWrap = () => (
     <Breadcrumbs.Item href="#">Subcategory</Breadcrumbs.Item>
     <Breadcrumbs.Item href="#">Item</Breadcrumbs.Item>
     <Breadcrumbs.Item href="#">Details</Breadcrumbs.Item>
+    <Breadcrumbs.Item href="#" selected>
+      Current Page
+    </Breadcrumbs.Item>
+  </Breadcrumbs>
+)
+
+export const TwoItemsWithOverflowMenu = () => (
+  <Breadcrumbs overflow="menu">
+    <Breadcrumbs.Item href="#">Home</Breadcrumbs.Item>
+    <Breadcrumbs.Item href="#" selected>
+      Current Page
+    </Breadcrumbs.Item>
+  </Breadcrumbs>
+)
+
+export const TwoItemsWithOverflowMenuWithRoot = () => (
+  <Breadcrumbs overflow="menu-with-root">
+    <Breadcrumbs.Item href="#">Home</Breadcrumbs.Item>
     <Breadcrumbs.Item href="#" selected>
       Current Page
     </Breadcrumbs.Item>

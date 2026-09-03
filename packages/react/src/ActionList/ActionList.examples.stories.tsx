@@ -1,5 +1,5 @@
 import type {Meta} from '@storybook/react-vite'
-import React, {forwardRef} from 'react'
+import React, {forwardRef, type JSX} from 'react'
 import {
   TypographyIcon,
   StarIcon,
@@ -12,6 +12,8 @@ import {
   XIcon,
 } from '@primer/octicons-react'
 import {ActionList} from '.'
+import {ActionListContainerContext} from './ActionListContainerContext'
+import {Banner} from '../Banner'
 import TextInput from '../TextInput'
 import Spinner from '../Spinner'
 import Text from '../Text'
@@ -19,6 +21,7 @@ import FormControl from '../FormControl'
 import {AriaStatus} from '../live-region'
 import {VisuallyHidden} from '../VisuallyHidden'
 import {ReactRouterLikeLink} from '../Pagination/mocks/ReactRouterLink'
+import {useRovingTabIndex} from '../TreeView/useRovingTabIndex'
 import classes from './ActionList.examples.stories.module.css'
 
 const meta: Meta = {
@@ -33,7 +36,8 @@ const meta: Meta = {
 export default meta
 
 const NextJSLikeLink = forwardRef(
-  ({href, children}: {href: string; children: React.ReactNode}, ref): React.ReactElement => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ({href, children}: {href: string; children: React.ReactNode}, ref): React.ReactElement<any> => {
     const child = React.Children.only(children)
     const childProps = {
       ref,
@@ -436,6 +440,63 @@ export function AllCombinations(): JSX.Element {
           </ActionList.Item>
         </ActionList>
       </div>
+    </>
+  )
+}
+
+const projects = [
+  {name: 'Primer Backlog', scope: 'GitHub'},
+  {name: 'Accessibility', scope: 'GitHub'},
+  {name: 'Octicons', scope: 'github/primer'},
+  {name: 'Primer React', scope: 'github/primer'},
+]
+
+export const CustomTreeRole = () => {
+  const [selectedIndices, setSelectedIndices] = React.useState<number[]>([0])
+  const containerRef = React.useRef<HTMLUListElement>(null)
+
+  useRovingTabIndex({containerRef})
+
+  const handleSelect = (index: number) => {
+    if (selectedIndices.includes(index)) {
+      setSelectedIndices(selectedIndices.filter(i => i !== index))
+    } else {
+      setSelectedIndices([...selectedIndices, index])
+    }
+  }
+
+  return (
+    <>
+      <Banner
+        variant="warning"
+        title="Demonstration only"
+        description="This story is for demonstration purposes only. For most use cases, you probably want to use the default list
+        roles provided by ActionList. Overriding default roles may have accessibility implications, so be sure to consult with an accessibility expert if you need to use custom roles."
+      />
+      <ActionListContainerContext.Provider value={{selectionAttribute: 'aria-selected'}}>
+        <ActionList
+          ref={containerRef}
+          selectionVariant="multiple"
+          role="tree"
+          aria-label="Projects"
+          aria-multiselectable="true"
+        >
+          {projects.map((project, index) => (
+            <ActionList.Item
+              key={index}
+              role="treeitem"
+              selected={selectedIndices.includes(index)}
+              onSelect={() => handleSelect(index)}
+            >
+              <ActionList.LeadingVisual>
+                <TableIcon />
+              </ActionList.LeadingVisual>
+              {project.name}
+              <ActionList.Description variant="block">{project.scope}</ActionList.Description>
+            </ActionList.Item>
+          ))}
+        </ActionList>
+      </ActionListContainerContext.Provider>
     </>
   )
 }

@@ -1,28 +1,45 @@
 import {describe, expect, it} from 'vitest'
-import {Select} from '..'
+import Select from '.'
 import {render} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import {implementsClassName} from '../utils/testing'
+import classes from './Select.module.css'
 
 describe('Select', () => {
-  it('should support `className` on the outermost element', () => {
-    const Element = () => (
+  implementsClassName(Select, classes.TextInputWrapper)
+  implementsClassName(Select.Option)
+  implementsClassName(Select.OptGroup)
+
+  it('renders data-component attributes', () => {
+    const {getByLabelText, getByText} = render(
       <>
-        <label htmlFor="default">Choice</label>
-        <Select id="default" data-testid="select-default" className="test-class-name">
-          <Select.Option value="one">Choice one</Select.Option>
-          <Select.Option value="two">Choice two</Select.Option>
-          <Select.Option value="three">Choice three</Select.Option>
-          <Select.Option value="four">Choice four</Select.Option>
-          <Select.Option value="five">Choice five</Select.Option>
-          <Select.Option value="six">Choice six</Select.Option>
+        <label htmlFor="grouped">Choice</label>
+        <Select id="grouped">
+          <Select.OptGroup label="Group one">
+            <Select.Option value="one">Choice one</Select.Option>
+          </Select.OptGroup>
         </Select>
-      </>
+      </>,
     )
-    const {container} = render(<Element />)
-    const select = container.querySelector('select')
-    const wrapper = container.querySelector('span.test-class-name')
-    expect(wrapper).toContainElement(select)
-    expect(wrapper).toHaveClass('test-class-name')
+
+    const select = getByLabelText('Choice')
+
+    expect(select).toHaveAttribute('data-component', 'Select')
+    expect(select.querySelector('optgroup')).toHaveAttribute('data-component', 'Select.OptGroup')
+    expect(getByText('Choice one')).toHaveAttribute('data-component', 'Select.Option')
+  })
+
+  it('renders data-component on placeholder option', () => {
+    const {getByText} = render(
+      <>
+        <label htmlFor="placeholder">Choice</label>
+        <Select id="placeholder" placeholder="Pick a choice">
+          <Select.Option value="one">Choice one</Select.Option>
+        </Select>
+      </>,
+    )
+
+    expect(getByText('Pick a choice')).toHaveAttribute('data-component', 'Select.Option')
   })
 
   it('renders a select input', () => {

@@ -117,7 +117,9 @@
   list-style: none;
 
   /* allow menu items to wrap line */
-  &:has(.MenuOverlay) {
+  /* The overflow-menu item is marked in React (`data-overflow-menu`) instead of using
+     `:has(.MenuOverlay)`, avoiding Safari's `:has()` invalidation cost. */
+  &[data-overflow-menu] {
     white-space: normal;
   }
 

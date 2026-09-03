@@ -1,5 +1,6 @@
 import {render, screen, waitFor} from '@testing-library/react'
 import {describe, expect, it, beforeEach, vi} from 'vitest'
+import {page} from 'vitest/browser'
 import React from 'react'
 import {SelectPanel, type SelectPanelProps, type ItemInput, type GroupedListProps} from '../SelectPanel'
 import {userEvent} from '@testing-library/user-event'
@@ -9,6 +10,30 @@ import type {LiveRegionElement} from '@primer/live-region-element'
 import {IconButton} from '../Button'
 import {ArrowLeftIcon} from '@primer/octicons-react'
 import classes from './SelectPanel.test.module.css'
+import {implementsClassName} from '../utils/testing'
+import {getAnchoredPosition} from '@primer/behaviors'
+import type {AnchorPosition} from '@primer/behaviors'
+
+// Mock getAnchoredPosition to verify displayInViewport is forwarded
+vi.mock('@primer/behaviors', async () => {
+  const actual = await vi.importActual('@primer/behaviors')
+  return {
+    ...actual,
+    getAnchoredPosition: vi.fn(
+      (
+        _floatingElement: Element,
+        _anchorElement: Element | DOMRect,
+        _settings?: Partial<{displayInViewport?: boolean}>,
+      ) =>
+        ({
+          top: 100,
+          left: 100,
+          anchorSide: 'outside-bottom',
+          anchorAlign: 'start',
+        }) as AnchorPosition,
+    ),
+  }
+})
 
 // Instead of importing from live-region/__tests__/test-helpers.ts, we define our own getLiveRegion function
 export function getLiveRegion(): LiveRegionElement {
@@ -19,16 +44,14 @@ export function getLiveRegion(): LiveRegionElement {
   throw new Error('No live-region found')
 }
 
-const renderWithFlag = (children: React.ReactNode, flag: boolean) => {
-  return render(
-    <FeatureFlags
-      flags={{
-        primer_react_select_panel_remove_active_descendant: flag,
-      }}
-    >
-      {children}
-    </FeatureFlags>,
-  )
+const getFocusManagement = (flag?: boolean) => {
+  // true = 'use roving tabindex'
+  // false = 'use aria-activedescendant'
+  return flag ? 'roving-tabindex' : 'active-descendant'
+}
+
+const renderWithProp = (element: React.ReactElement, flag?: boolean) => {
+  return render(React.cloneElement(element, {_PrivateFocusManagement: getFocusManagement(flag)}))
 }
 
 const items: SelectPanelProps['items'] = [
@@ -78,8 +101,9 @@ globalThis.Element.prototype.scrollTo = vi.fn()
 
 for (const usingRemoveActiveDescendant of [false, true]) {
   describe('SelectPanel', () => {
+    implementsClassName(props => <BasicSelectPanel open {...props} />, classes.FilteredActionList)
     it('should render an anchor to open the select panel using `placeholder`', () => {
-      renderWithFlag(<BasicSelectPanel />, usingRemoveActiveDescendant)
+      renderWithProp(<BasicSelectPanel />)
 
       expect(screen.getByText('Select items')).toBeInTheDocument()
 
@@ -90,10 +114,23 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       expect(trigger).toHaveAttribute('aria-expanded', 'false')
     })
 
+    it('should call onActiveDescendantChanged when using keyboard while focusing on an item', async () => {
+      const user = userEvent.setup()
+      // jest function
+      const onActiveDescendantChanged = vi.fn()
+
+      render(<BasicSelectPanel onActiveDescendantChanged={onActiveDescendantChanged} />)
+
+      await user.click(screen.getByText('Select items'))
+
+      await user.type(document.activeElement!, '{ArrowDown}')
+      expect(onActiveDescendantChanged).toHaveBeenCalled()
+    })
+
     it('should open the select panel when activating the trigger', async () => {
       const user = userEvent.setup()
 
-      renderWithFlag(<BasicSelectPanel />, usingRemoveActiveDescendant)
+      renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
 
       await user.click(screen.getByText('Select items'))
 
@@ -114,7 +151,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
     it('should close the select panel when pressing Escape', async () => {
       const user = userEvent.setup()
 
-      renderWithFlag(<BasicSelectPanel />, usingRemoveActiveDescendant)
+      renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
 
       await user.click(screen.getByText('Select items'))
       await user.keyboard('{Escape}')
@@ -126,12 +163,11 @@ for (const usingRemoveActiveDescendant of [false, true]) {
     it('should close the select panel when clicking outside of the select panel', async () => {
       const user = userEvent.setup()
 
-      renderWithFlag(
+      render(
         <>
           <button type="button">outer button</button>
-          <BasicSelectPanel />
+          <BasicSelectPanel _PrivateFocusManagement={getFocusManagement(usingRemoveActiveDescendant)} />
         </>,
-        usingRemoveActiveDescendant,
       )
 
       await user.click(screen.getByText('Select items'))
@@ -143,7 +179,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
     it('should open a dialog that is labelled by `title` and described by `subtitle`', async () => {
       const user = userEvent.setup()
 
-      renderWithFlag(<BasicSelectPanel />, usingRemoveActiveDescendant)
+      renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
 
       await user.click(screen.getByText('Select items'))
 
@@ -194,7 +230,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
 
       const user = userEvent.setup()
 
-      renderWithFlag(<SelectPanelOpenChange />, usingRemoveActiveDescendant)
+      renderWithProp(<SelectPanelOpenChange />, usingRemoveActiveDescendant)
 
       // Open by click
       await user.click(screen.getByText('Select items'))
@@ -221,7 +257,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
     it('should label the list by title unless a aria-label is explicitly passed', async () => {
       const user = userEvent.setup()
 
-      renderWithFlag(<BasicSelectPanel />, usingRemoveActiveDescendant)
+      renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
       await user.click(screen.getByText('Select items'))
       expect(screen.getByRole('listbox', {name: 'test title'})).toBeInTheDocument()
     })
@@ -229,7 +265,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
     it('should label the list by aria-label when explicitly passed', async () => {
       const user = userEvent.setup()
 
-      renderWithFlag(<BasicSelectPanel aria-label="Custom label" />, usingRemoveActiveDescendant)
+      renderWithProp(<BasicSelectPanel aria-label="Custom label" />, usingRemoveActiveDescendant)
       await user.click(screen.getByText('Select items'))
       expect(screen.getByRole('listbox', {name: 'Custom label'})).toBeInTheDocument()
     })
@@ -239,7 +275,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
 
       // This panel contains another focusable thing (the IconButton) that should not receive focus
       // when the panel opens.
-      renderWithFlag(
+      renderWithProp(
         <SelectPanel
           onOpenChange={() => {}}
           onFilterChange={() => {}}
@@ -267,7 +303,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should select an active option when activated', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<BasicSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -303,7 +339,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should support navigating through items with ArrowUp and ArrowDown', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<BasicSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -382,7 +418,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should support navigating through items with PageDown and PageUp', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<BasicSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -451,7 +487,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
           )
         }
 
-        renderWithFlag(<Fixture />, usingRemoveActiveDescendant)
+        renderWithProp(<Fixture />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -492,6 +528,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
           onOpenChange={isOpen => {
             setOpen(isOpen)
           }}
+          _PrivateFocusManagement={usingRemoveActiveDescendant ? 'roving-tabindex' : 'active-descendant'}
         />
       )
     }
@@ -598,7 +635,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should filter the list of items when the user types into the input', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<FilterableSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<FilterableSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -645,7 +682,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('displays a loading spinner on first open', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<LoadingSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<LoadingSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -655,7 +692,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('displays a loading skeleton on first open', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<LoadingSelectPanel initialLoadingType="skeleton" />, usingRemoveActiveDescendant)
+        renderWithProp(<LoadingSelectPanel initialLoadingType="skeleton" />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -665,7 +702,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('displays a loading spinner in the text input if items are already loaded', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<LoadingSelectPanel items={items} />, usingRemoveActiveDescendant)
+        renderWithProp(<LoadingSelectPanel items={items} />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -682,7 +719,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
 
       it('should announce initially focused item', async () => {
         const user = userEvent.setup()
-        renderWithFlag(<FilterableSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<FilterableSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
         expect(screen.getByLabelText('Filter items')).toHaveFocus()
@@ -739,7 +776,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
           )
         }
 
-        renderWithFlag(<SelectPanelWithNotice />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectPanelWithNotice />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
         expect(screen.getByLabelText('Filter items')).toHaveFocus()
@@ -749,7 +786,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
 
       it('should announce filtered results', async () => {
         const user = userEvent.setup()
-        renderWithFlag(<FilterableSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<FilterableSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
         expect(screen.getByLabelText('Filter items')).toHaveFocus()
@@ -802,7 +839,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
 
       it('should announce default empty message when no results are available (no custom message is provided)', async () => {
         const user = userEvent.setup()
-        renderWithFlag(<FilterableSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<FilterableSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -854,7 +891,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
           )
         }
 
-        renderWithFlag(<SelectPanelWithCustomEmptyMessage />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectPanelWithCustomEmptyMessage />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -876,7 +913,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should accept a className to style the component', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<BasicSelectPanel className="test-class" />, usingRemoveActiveDescendant)
+        renderWithProp(<BasicSelectPanel className="test-class" />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -888,7 +925,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should display the default empty state message when there is no matching item after filtering (No custom message is provided)', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<FilterableSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<FilterableSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -901,7 +938,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should display the default empty state message when there is no item after the initial load (No custom message is provided)', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<NoItemAvailableSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<NoItemAvailableSelectPanel />, usingRemoveActiveDescendant)
 
         await waitFor(async () => {
           await user.click(screen.getByText('Select items'))
@@ -911,7 +948,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should display the custom empty state message when there is no matching item after filtering', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(
+        renderWithProp(
           <SelectPanelWithCustomMessages
             items={[
               {
@@ -940,7 +977,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should display the custom empty state message when there is no item after the initial load', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectPanelWithCustomMessages items={[]} />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectPanelWithCustomMessages items={[]} />, usingRemoveActiveDescendant)
 
         await waitFor(async () => {
           await user.click(screen.getByText('Select items'))
@@ -953,7 +990,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
         const handleAction = vi.fn()
         const user = userEvent.setup()
 
-        renderWithFlag(
+        renderWithProp(
           <SelectPanelWithCustomMessages items={[]} withAction={true} onAction={handleAction} />,
           usingRemoveActiveDescendant,
         )
@@ -1011,7 +1048,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should render the provided `footer` at the bottom of the dialog', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectPanelWithFooter />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectPanelWithFooter />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
         expect(screen.getByText('test footer')).toBeInTheDocument()
@@ -1086,7 +1123,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should render groups with items', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectPanelWithGroups />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectPanelWithGroups />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
         const listbox = screen.getByRole('listbox')
@@ -1105,7 +1142,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should select items within groups', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectPanelWithGroups />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectPanelWithGroups />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -1137,7 +1174,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('selections render as radios when variant modal and single select', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(
+        renderWithProp(
           <BasicSelectPanel variant="modal" onCancel={() => {}} selected={undefined} />,
           usingRemoveActiveDescendant,
         )
@@ -1152,12 +1189,42 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('save and oncancel buttons are present when variant modal', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<BasicSelectPanel variant="modal" onCancel={() => {}} />, usingRemoveActiveDescendant)
+        renderWithProp(<BasicSelectPanel variant="modal" onCancel={() => {}} />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
         expect(screen.getByRole('button', {name: 'Save'})).toBeInTheDocument()
         expect(screen.getByRole('button', {name: 'Cancel'})).toBeInTheDocument()
+      })
+
+      it('locks body scroll when modal is open', async () => {
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel variant="modal" onCancel={() => {}} />, usingRemoveActiveDescendant)
+
+        expect(document.body.style.overflow).not.toBe('hidden')
+
+        await user.click(screen.getByText('Select items'))
+
+        await waitFor(() => {
+          expect(document.body.style.overflow).toBe('hidden')
+        })
+      })
+
+      it('restores body scroll when modal is closed', async () => {
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel variant="modal" onCancel={() => {}} />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+        await waitFor(() => {
+          expect(document.body.style.overflow).toBe('hidden')
+        })
+
+        await user.click(screen.getByRole('button', {name: 'Cancel'}))
+        await waitFor(() => {
+          expect(document.body.style.overflow).not.toBe('hidden')
+        })
       })
     })
 
@@ -1181,7 +1248,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should render selected items at the top by default when FF on', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(
+        renderWithProp(
           <FeatureFlags flags={{primer_react_select_panel_order_selected_at_top: true}}>
             <BasicSelectPanel items={items} selected={[items[1]]} />
           </FeatureFlags>,
@@ -1198,7 +1265,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should not render selected items at the top by default when FF off', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(
+        renderWithProp(
           <FeatureFlags flags={{primer_react_select_panel_order_selected_at_top: false}}>
             <BasicSelectPanel items={items} selected={[items[1]]} />
           </FeatureFlags>,
@@ -1215,7 +1282,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should not render selected items at the top when showSelectedOptionsFirst set to false', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(
+        renderWithProp(
           <BasicSelectPanel items={items} selected={[items[1]]} showSelectedOptionsFirst={false} />,
           usingRemoveActiveDescendant,
         )
@@ -1231,7 +1298,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
 
     describe('disableFullscreenOnNarrow prop', () => {
       const renderSelectPanelWithFlags = (flags: Record<string, boolean>, props: Record<string, unknown> = {}) => {
-        return renderWithFlag(
+        return renderWithProp(
           <FeatureFlags flags={flags}>
             <SingleSelectPanel {...props} />
           </FeatureFlags>,
@@ -1352,7 +1419,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should render a Select All checkbox when showSelectAll is true', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -1364,7 +1431,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should not render a Select All checkbox when showSelectAll is false', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectAllSelectPanel showSelectAll={false} />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectAllSelectPanel showSelectAll={false} />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -1375,7 +1442,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should select all items when the Select All checkbox is clicked', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -1390,7 +1457,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should deselect all items when the Deselect All checkbox is clicked', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -1411,7 +1478,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should update Select All checkbox to indeterminate state when some items (but not all) are selected', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -1427,7 +1494,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should update Select All checkbox to checked when all items are selected manually', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -1445,7 +1512,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
       it('should update Select All checkbox label to "Deselect all" when all items are selected', async () => {
         const user = userEvent.setup()
 
-        renderWithFlag(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<SelectAllSelectPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -1491,7 +1558,7 @@ for (const usingRemoveActiveDescendant of [false, true]) {
           )
         }
 
-        renderWithFlag(<FilterableSelectAllPanel />, usingRemoveActiveDescendant)
+        renderWithProp(<FilterableSelectAllPanel />, usingRemoveActiveDescendant)
 
         await user.click(screen.getByText('Select items'))
 
@@ -1523,5 +1590,706 @@ for (const usingRemoveActiveDescendant of [false, true]) {
         expect(selectAllCheckbox).toHaveProperty('indeterminate', true)
       })
     })
+
+    describe('disableSelectOnHover', () => {
+      it('should not update aria-activedescendant when hovering over items when disableSelectOnHover is true', async () => {
+        const user = userEvent.setup()
+
+        render(<BasicSelectPanel disableSelectOnHover={true} />)
+
+        await user.click(screen.getByText('Select items'))
+
+        const input = screen.getByPlaceholderText('Filter items')
+        const options = screen.getAllByRole('option')
+
+        // Initially, aria-activedescendant should not be set if setInitialFocus is false (default)
+        const initialActiveDescendant = input.getAttribute('aria-activedescendant')
+
+        // Hover over the first item
+        await user.hover(options[0])
+
+        // aria-activedescendant should not change when disableSelectOnHover is true
+        expect(input.getAttribute('aria-activedescendant')).toBe(initialActiveDescendant)
+
+        // Hover over the second item
+        await user.hover(options[1])
+
+        // aria-activedescendant should still not change
+        expect(input.getAttribute('aria-activedescendant')).toBe(initialActiveDescendant)
+      })
+
+      it('should update aria-activedescendant when hovering over items when disableSelectOnHover is false (default)', async () => {
+        const user = userEvent.setup()
+
+        render(<BasicSelectPanel />)
+
+        await user.click(screen.getByText('Select items'))
+
+        const input = screen.getByPlaceholderText('Filter items')
+        const options = screen.getAllByRole('option')
+
+        // Hover over the first item
+        await user.hover(options[0])
+
+        // aria-activedescendant should be set to the first item
+        expect(input.getAttribute('aria-activedescendant')).toBe(options[0].id)
+
+        // Hover over the second item
+        await user.hover(options[1])
+
+        // aria-activedescendant should be updated to the second item
+        expect(input.getAttribute('aria-activedescendant')).toBe(options[1].id)
+      })
+    })
+
+    describe('setInitialFocus', () => {
+      it('should not set aria-activedescendant until user interaction when setInitialFocus is true', async () => {
+        const user = userEvent.setup()
+
+        render(<BasicSelectPanel setInitialFocus={true} />)
+
+        await user.click(screen.getByText('Select items'))
+
+        const input = screen.getByPlaceholderText('Filter items')
+        const options = screen.getAllByRole('option')
+
+        // Initially, aria-activedescendant should not be set
+        expect(input.getAttribute('aria-activedescendant')).toBeFalsy()
+
+        // User interacts with keyboard
+        await user.keyboard('{ArrowDown}')
+
+        // Now aria-activedescendant should be set to the first item
+        expect(input.getAttribute('aria-activedescendant')).toBe(options[0].id)
+      })
+
+      it('should set aria-activedescendant to the first item on mount when setInitialFocus is false (default)', async () => {
+        const user = userEvent.setup()
+
+        render(<BasicSelectPanel />)
+
+        await user.click(screen.getByText('Select items'))
+
+        const input = screen.getByPlaceholderText('Filter items')
+        const options = screen.getAllByRole('option')
+
+        // Wait a tick for the effect to run
+        await new Promise(resolve => setTimeout(resolve, 0))
+
+        // aria-activedescendant should be set to the first item
+        expect(input.getAttribute('aria-activedescendant')).toBe(options[0].id)
+      })
+
+      it('should not set aria-activedescendant on mouse hover until after first interaction when setInitialFocus is true', async () => {
+        const user = userEvent.setup()
+
+        render(<BasicSelectPanel setInitialFocus={true} />)
+
+        await user.click(screen.getByText('Select items'))
+
+        const input = screen.getByPlaceholderText('Filter items')
+        const options = screen.getAllByRole('option')
+
+        // Initially, aria-activedescendant should not be set
+        expect(input.getAttribute('aria-activedescendant')).toBeFalsy()
+
+        // Hover over the first item (this is the first interaction)
+        await user.hover(options[0])
+
+        // Now aria-activedescendant should be set to the first item
+        expect(input.getAttribute('aria-activedescendant')).toBe(options[0].id)
+
+        // Hover over the second item
+        await user.hover(options[1])
+
+        // aria-activedescendant should update to the second item
+        expect(input.getAttribute('aria-activedescendant')).toBe(options[1].id)
+      })
+    })
+
+    describe('data-component attributes', () => {
+      it('renders SelectPanel with data-component attribute', async () => {
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(screen.getByRole('dialog').querySelector('[data-component="SelectPanel"]')).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.Header with data-component attribute', async () => {
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(screen.getByRole('dialog').querySelector('[data-component="SelectPanel.Header"]')).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.Title with data-component attribute', async () => {
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(screen.getByRole('dialog').querySelector('[data-component="SelectPanel.Title"]')).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.Subtitle with data-component attribute', async () => {
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(screen.getByRole('dialog').querySelector('[data-component="SelectPanel.Subtitle"]')).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.Footer with data-component attribute when using deprecated footer prop', async () => {
+        const user = userEvent.setup()
+
+        function SelectPanelWithFooter() {
+          const [selected, setSelected] = React.useState<SelectPanelProps['items']>([])
+          const [filter, setFilter] = React.useState('')
+          const [open, setOpen] = React.useState(false)
+
+          return (
+            <SelectPanel
+              title="test title"
+              subtitle="test subtitle"
+              footer={<div>test footer</div>}
+              items={items}
+              placeholder="Select items"
+              placeholderText="Filter items"
+              selected={selected}
+              onSelectedChange={setSelected}
+              filterValue={filter}
+              onFilterChange={setFilter}
+              open={open}
+              onOpenChange={setOpen}
+            />
+          )
+        }
+
+        renderWithProp(<SelectPanelWithFooter />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(screen.getByRole('dialog').querySelector('[data-component="SelectPanel.Footer"]')).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.Footer with data-component attribute when using modal variant', async () => {
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel variant="modal" onCancel={() => {}} />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(screen.getByRole('dialog').querySelector('[data-component="SelectPanel.Footer"]')).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.CancelButton with data-component attribute', async () => {
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel variant="modal" onCancel={() => {}} />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.CancelButton"]'),
+        ).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.SaveButton with data-component attribute', async () => {
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel variant="modal" onCancel={() => {}} />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.SaveButton"]'),
+        ).toBeInTheDocument()
+      })
+
+      // Note: SelectPanel.CloseButton is only rendered on non-narrow screens in modal variant.
+      // On narrow screens, AnchoredOverlay handles the close button display.
+
+      it('renders SelectPanel.Backdrop with data-component attribute in modal variant', async () => {
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel variant="modal" onCancel={() => {}} />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(document.querySelector('[data-component="SelectPanel.Backdrop"]')).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.SecondaryAction with data-component attribute', async () => {
+        const user = userEvent.setup()
+
+        function SelectPanelWithSecondaryAction() {
+          const [selected, setSelected] = React.useState<SelectPanelProps['items']>([])
+          const [filter, setFilter] = React.useState('')
+          const [open, setOpen] = React.useState(false)
+
+          return (
+            <SelectPanel
+              title="test title"
+              subtitle="test subtitle"
+              secondaryAction={<SelectPanel.SecondaryActionButton>Action</SelectPanel.SecondaryActionButton>}
+              items={items}
+              placeholder="Select items"
+              placeholderText="Filter items"
+              selected={selected}
+              onSelectedChange={setSelected}
+              filterValue={filter}
+              onFilterChange={setFilter}
+              open={open}
+              onOpenChange={setOpen}
+              variant="modal"
+              onCancel={() => {}}
+            />
+          )
+        }
+
+        renderWithProp(<SelectPanelWithSecondaryAction />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.SecondaryAction"]'),
+        ).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.SecondaryActionButton with data-component attribute', async () => {
+        const user = userEvent.setup()
+
+        function SelectPanelWithSecondaryActionButton() {
+          const [selected, setSelected] = React.useState<SelectPanelProps['items']>([])
+          const [filter, setFilter] = React.useState('')
+          const [open, setOpen] = React.useState(false)
+
+          return (
+            <SelectPanel
+              title="test title"
+              subtitle="test subtitle"
+              secondaryAction={<SelectPanel.SecondaryActionButton>Action</SelectPanel.SecondaryActionButton>}
+              items={items}
+              placeholder="Select items"
+              placeholderText="Filter items"
+              selected={selected}
+              onSelectedChange={setSelected}
+              filterValue={filter}
+              onFilterChange={setFilter}
+              open={open}
+              onOpenChange={setOpen}
+              variant="modal"
+              onCancel={() => {}}
+            />
+          )
+        }
+
+        renderWithProp(<SelectPanelWithSecondaryActionButton />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.SecondaryActionButton"]'),
+        ).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.SecondaryActionLink with data-component attribute', async () => {
+        const user = userEvent.setup()
+
+        function SelectPanelWithSecondaryActionLink() {
+          const [selected, setSelected] = React.useState<SelectPanelProps['items']>([])
+          const [filter, setFilter] = React.useState('')
+          const [open, setOpen] = React.useState(false)
+
+          return (
+            <SelectPanel
+              title="test title"
+              subtitle="test subtitle"
+              secondaryAction={<SelectPanel.SecondaryActionLink href="#">Link</SelectPanel.SecondaryActionLink>}
+              items={items}
+              placeholder="Select items"
+              placeholderText="Filter items"
+              selected={selected}
+              onSelectedChange={setSelected}
+              filterValue={filter}
+              onFilterChange={setFilter}
+              open={open}
+              onOpenChange={setOpen}
+              variant="modal"
+              onCancel={() => {}}
+            />
+          )
+        }
+
+        renderWithProp(<SelectPanelWithSecondaryActionLink />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.SecondaryActionLink"]'),
+        ).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.Notice with data-component attribute', async () => {
+        const user = userEvent.setup()
+
+        function SelectPanelWithNotice() {
+          const [selected, setSelected] = React.useState<SelectPanelProps['items']>([])
+          const [filter, setFilter] = React.useState('')
+          const [open, setOpen] = React.useState(false)
+
+          return (
+            <SelectPanel
+              title="test title"
+              subtitle="test subtitle"
+              notice={{text: 'This is a notice', variant: 'info'}}
+              items={items}
+              placeholder="Select items"
+              placeholderText="Filter items"
+              selected={selected}
+              onSelectedChange={setSelected}
+              filterValue={filter}
+              onFilterChange={setFilter}
+              open={open}
+              onOpenChange={setOpen}
+            />
+          )
+        }
+
+        renderWithProp(<SelectPanelWithNotice />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(screen.getByRole('dialog').querySelector('[data-component="SelectPanel.Notice"]')).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.Message with data-component attribute when message is shown', async () => {
+        const user = userEvent.setup()
+
+        function SelectPanelWithMessage() {
+          const [selected, setSelected] = React.useState<SelectPanelProps['items']>([])
+          const [filter, setFilter] = React.useState('')
+          const [open, setOpen] = React.useState(false)
+
+          return (
+            <SelectPanel
+              title="test title"
+              subtitle="test subtitle"
+              message={{title: 'Message title', body: 'Message body', variant: 'warning'}}
+              items={[]}
+              placeholder="Select items"
+              placeholderText="Filter items"
+              selected={selected}
+              onSelectedChange={setSelected}
+              filterValue={filter}
+              onFilterChange={setFilter}
+              open={open}
+              onOpenChange={setOpen}
+            />
+          )
+        }
+
+        renderWithProp(<SelectPanelWithMessage />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(screen.getByRole('dialog').querySelector('[data-component="SelectPanel.Message"]')).toBeInTheDocument()
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.MessageIcon"]'),
+        ).toBeInTheDocument()
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.MessageTitle"]'),
+        ).toBeInTheDocument()
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.MessageBody"]'),
+        ).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.MessageAction with data-component attribute when action is provided', async () => {
+        const user = userEvent.setup()
+
+        function SelectPanelWithMessageAction() {
+          const [selected, setSelected] = React.useState<SelectPanelProps['items']>([])
+          const [filter, setFilter] = React.useState('')
+          const [open, setOpen] = React.useState(false)
+
+          return (
+            <SelectPanel
+              title="test title"
+              subtitle="test subtitle"
+              message={{
+                title: 'Error',
+                body: 'Something went wrong',
+                variant: 'error',
+                action: <button type="button">Retry</button>,
+              }}
+              items={[]}
+              placeholder="Select items"
+              placeholderText="Filter items"
+              selected={selected}
+              onSelectedChange={setSelected}
+              filterValue={filter}
+              onFilterChange={setFilter}
+              open={open}
+              onOpenChange={setOpen}
+            />
+          )
+        }
+
+        renderWithProp(<SelectPanelWithMessageAction />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.MessageAction"]'),
+        ).toBeInTheDocument()
+      })
+
+      it('allows accessing nested ActionList data-component attributes from SelectPanel', async () => {
+        const user = userEvent.setup()
+
+        const itemsWithLeadingVisual = [
+          {text: 'item one', leadingVisual: () => <span>Icon</span>},
+          {text: 'item two', leadingVisual: () => <span>Icon</span>},
+        ]
+
+        function SelectPanelWithLeadingVisuals() {
+          const [selected, setSelected] = React.useState<SelectPanelProps['items']>([])
+          const [filter, setFilter] = React.useState('')
+          const [open, setOpen] = React.useState(false)
+
+          return (
+            <SelectPanel
+              title="test title"
+              subtitle="test subtitle"
+              items={itemsWithLeadingVisual}
+              placeholder="Select items"
+              placeholderText="Filter items"
+              selected={selected}
+              onSelectedChange={setSelected}
+              filterValue={filter}
+              onFilterChange={setFilter}
+              open={open}
+              onOpenChange={setOpen}
+            />
+          )
+        }
+
+        renderWithProp(<SelectPanelWithLeadingVisuals />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        // Test that you can query for ActionList primitives nested within SelectPanel
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel"] [data-component="ActionList.Item"]'),
+        ).toBeInTheDocument()
+
+        expect(
+          screen
+            .getByRole('dialog')
+            .querySelector('[data-component="SelectPanel"] [data-component="ActionList.LeadingVisual"]'),
+        ).toBeInTheDocument()
+
+        expect(
+          screen
+            .getByRole('dialog')
+            .querySelector('[data-component="SelectPanel"] [data-component="ActionList.Item.Label"]'),
+        ).toBeInTheDocument()
+
+        // Test that you can query for the TextInput nested within SelectPanel
+        expect(
+          screen
+            .getByRole('dialog')
+            .querySelector('[data-component="SelectPanel"] [data-component="TextInput"] [data-component="input"]'),
+        ).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.CloseButton with data-component attribute on wide viewports in modal variant', async () => {
+        await page.viewport(1400, 728)
+        const user = userEvent.setup()
+
+        renderWithProp(<BasicSelectPanel variant="modal" onCancel={() => {}} />, usingRemoveActiveDescendant)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.CloseButton"]'),
+        ).toBeInTheDocument()
+      })
+
+      it('renders SelectPanel.SaveAndCloseButton with data-component attribute on narrow viewports', async () => {
+        await page.viewport(320, 568)
+        const user = userEvent.setup()
+
+        function MultiSelectPanelWithoutCancel() {
+          const [selected, setSelected] = React.useState<SelectPanelProps['items']>([])
+          const [filter, setFilter] = React.useState('')
+          const [open, setOpen] = React.useState(false)
+
+          return (
+            <FeatureFlags flags={{primer_react_select_panel_fullscreen_on_narrow: true}}>
+              <SelectPanel
+                title="test title"
+                subtitle="test subtitle"
+                items={items}
+                placeholder="Select items"
+                placeholderText="Filter items"
+                selected={selected}
+                onSelectedChange={setSelected}
+                filterValue={filter}
+                onFilterChange={setFilter}
+                open={open}
+                onOpenChange={setOpen}
+              />
+            </FeatureFlags>
+          )
+        }
+
+        render(<MultiSelectPanelWithoutCancel />)
+
+        await user.click(screen.getByText('Select items'))
+
+        expect(
+          screen.getByRole('dialog').querySelector('[data-component="SelectPanel.SaveAndCloseButton"]'),
+        ).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Event propagation', () => {
+    function EventSelectPanel() {
+      const [selected, setSelected] = React.useState<SelectPanelProps['items']>([])
+      const [filter, setFilter] = React.useState('')
+      const [open, setOpen] = React.useState(false)
+
+      const onSelectedChange = (selected: SelectPanelProps['items']) => {
+        setSelected(selected)
+      }
+
+      return (
+        <div
+          onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
+            const isAlphabetKey = e.key.length === 1 && /[a-z\d]/i.test(e.key)
+            const container = e.currentTarget
+
+            if (!isAlphabetKey) return
+            container.setAttribute('data-keydown-called', 'true')
+          }}
+          data-keydown-called="false"
+        >
+          <button type="button" onClick={() => setOpen(!open)}>
+            Toggle SelectPanel
+          </button>
+          <SelectPanel
+            title="test title"
+            subtitle="test subtitle"
+            items={items}
+            placeholder="Select items"
+            placeholderText="Filter items"
+            selected={selected}
+            onSelectedChange={onSelectedChange}
+            filterValue={filter}
+            onFilterChange={value => {
+              setFilter(value)
+            }}
+            open={open}
+            onOpenChange={isOpen => {
+              setOpen(isOpen)
+            }}
+            _PrivateFocusManagement="roving-tabindex"
+          />
+        </div>
+      )
+    }
+
+    it('should prevent event propagation when using keyboard while focusing on an item', async () => {
+      const user = userEvent.setup()
+
+      render(<EventSelectPanel />)
+
+      const toggleButton = screen.getByRole('button', {name: 'Toggle SelectPanel'})
+      const container = toggleButton.parentElement as HTMLDivElement
+
+      await user.click(toggleButton)
+
+      expect(screen.getByText('Select items')).toBeInTheDocument()
+
+      const listbox = screen.getByRole('listbox')
+      expect(listbox).toBeInTheDocument()
+      expect(listbox).toHaveAttribute('aria-multiselectable', 'true')
+
+      const options = screen.getAllByRole('option')
+      expect(options).toHaveLength(3)
+
+      const firstOption = options[0]
+      expect(firstOption).toHaveTextContent('item one')
+
+      await user.keyboard('{ArrowDown}')
+
+      expect(firstOption).toHaveFocus()
+
+      await user.keyboard('{ArrowDown}')
+
+      // Trigger alphabet key that should not propagate
+      await user.keyboard('A')
+
+      expect(options[1]).toHaveFocus()
+      expect(container.getAttribute('data-keydown-called')).toBe('false')
+    })
   })
 }
+
+describe('SelectPanel displayInViewport prop', () => {
+  const mockGetAnchoredPosition = vi.mocked(getAnchoredPosition)
+
+  beforeEach(() => {
+    mockGetAnchoredPosition.mockClear()
+  })
+
+  it('should forward displayInViewport={true} to getAnchoredPosition', async () => {
+    const user = userEvent.setup()
+    render(<BasicSelectPanel displayInViewport={true} />)
+
+    await user.click(screen.getByRole('button', {name: 'Select items'}))
+
+    await waitFor(() => {
+      expect(screen.getByRole('listbox')).toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(mockGetAnchoredPosition).toHaveBeenCalled()
+    })
+
+    const calls = mockGetAnchoredPosition.mock.calls
+    const lastCall = calls[calls.length - 1]
+    expect(lastCall[2]?.displayInViewport).toBe(true)
+  })
+
+  it('should not set displayInViewport when prop is not provided', async () => {
+    const user = userEvent.setup()
+    render(<BasicSelectPanel />)
+
+    await user.click(screen.getByRole('button', {name: 'Select items'}))
+
+    await waitFor(() => {
+      expect(screen.getByRole('listbox')).toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(mockGetAnchoredPosition).toHaveBeenCalled()
+    })
+
+    const calls = mockGetAnchoredPosition.mock.calls
+    const lastCall = calls[calls.length - 1]
+    expect(lastCall[2]?.displayInViewport).not.toBe(true)
+  })
+})

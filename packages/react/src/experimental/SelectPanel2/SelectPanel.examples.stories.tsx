@@ -1,6 +1,13 @@
 import React from 'react'
 import {SelectPanel} from './SelectPanel'
-import {ActionList, ActionMenu, Avatar, Button, Text, Flash, FormControl, TextInput} from '../../index'
+import {ActionList} from '../../ActionList'
+import {ActionMenu} from '../../ActionMenu'
+import Avatar from '../../Avatar'
+import {Button} from '../../Button'
+import Text from '../../Text'
+import Flash from '../../Flash'
+import FormControl from '../../FormControl'
+import TextInput from '../../TextInput'
 import Octicon from '../../Octicon'
 import {Dialog} from '../../experimental'
 import {
@@ -16,7 +23,7 @@ import {
   PlusCircleIcon,
 } from '@primer/octicons-react'
 import data from './mock-story-data'
-import sharedClasses from './SelectPanel2Stories.module.css'
+import sharedClasses from './SelectPanel2.stories.module.css'
 import classes from './SelectPanel.examples.stories.module.css'
 
 export default {
@@ -544,6 +551,7 @@ export const WithFilterButtons = () => {
 
   React.useEffect(
     function updateSearchResults() {
+      // eslint-disable-next-line react-hooks/set-state-in-effect, react-you-might-not-need-an-effect/no-derived-state
       setSearchResults(query, selectedFilter)
     },
     [query, selectedFilter],

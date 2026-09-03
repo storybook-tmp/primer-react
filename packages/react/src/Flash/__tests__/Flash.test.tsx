@@ -1,8 +1,11 @@
 import {render, screen} from '@testing-library/react'
 import {describe, expect, it} from 'vitest'
 import Flash from '../Flash'
+import {implementsClassName} from '../../utils/testing'
+import classes from '../Flash.module.css'
 
 describe('Flash', () => {
+  implementsClassName(Flash, classes.Flash)
   it('should support the `full` prop', () => {
     render(
       <>
@@ -30,13 +33,13 @@ describe('Flash', () => {
     expect(screen.getByTestId('default')).toHaveAttribute('data-variant', 'default')
   })
 
-  it('should support `className` on the outermost element', () => {
-    const {container} = render(<Flash className="test-class" />)
-    expect(container.firstChild).toHaveClass('test-class')
-  })
-
   it('should spread props to the outermost element', () => {
     const {container} = render(<Flash data-testid="test" />)
     expect(container.firstChild).toHaveAttribute('data-testid', 'test')
+  })
+
+  it('renders data-component attribute', () => {
+    render(<Flash data-testid="flash" />)
+    expect(screen.getByTestId('flash')).toHaveAttribute('data-component', 'Flash')
   })
 })

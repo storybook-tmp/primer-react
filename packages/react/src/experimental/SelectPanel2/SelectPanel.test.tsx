@@ -1,6 +1,7 @@
-import React from 'react'
+import React, {type JSX} from 'react'
 import {describe, expect, it, vi} from 'vitest'
-import {ActionList, FormControl} from '../../'
+import {ActionList} from '../../ActionList'
+import FormControl from '../../FormControl'
 import type {RenderResult} from '@testing-library/react'
 import {render} from '@testing-library/react'
 import type {UserEvent} from '@testing-library/user-event'
@@ -8,6 +9,8 @@ import userEvent from '@testing-library/user-event'
 import data from './mock-story-data'
 import type {SelectPanelProps} from './SelectPanel'
 import {SelectPanel} from './SelectPanel'
+import {implementsClassName} from '../../utils/testing'
+import classes from './SelectPanel.module.css'
 
 const Fixture = ({onSubmit, onCancel}: Pick<SelectPanelProps, 'onSubmit' | 'onCancel'>) => {
   const initialSelectedLabels = data.issue.labelIds // mock initial state: has selected labels
@@ -73,6 +76,9 @@ function SelectPanelWithComplexButtonWithinForm(): JSX.Element {
 }
 
 describe('SelectPanel', () => {
+  implementsClassName(SelectPanel, classes.Overlay)
+  implementsClassName(SelectPanel.Header, classes.Header)
+  implementsClassName(SelectPanel.SearchInput, classes.TextInput)
   it('renders Button by default', async () => {
     const container = render(<Fixture />)
 

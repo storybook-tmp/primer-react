@@ -1,13 +1,28 @@
 import {describe, expect, it} from 'vitest'
-import {ProgressBar} from '..'
+import {ProgressBar} from '.'
 import {render} from '@testing-library/react'
+import {implementsClassName} from '../utils/testing'
+import classes from './ProgressBar.module.css'
 
 describe('ProgressBar', () => {
-  it('should support `className` on the outermost element', () => {
-    const Element = () => (
-      <ProgressBar progress={80} barSize="small" aria-label="Upload test.png" className={'test-class-name'} />
+  implementsClassName(ProgressBar, classes.ProgressBarContainer)
+  implementsClassName(ProgressBar.Item, classes.ProgressBarItem)
+
+  it('renders data-component attributes for ProgressBar and ProgressBar.Item', () => {
+    const {container} = render(<ProgressBar progress={50} aria-label="Upload test.png" />)
+    expect(container.firstChild).toHaveAttribute('data-component', 'ProgressBar')
+    expect(container.querySelector('[role="progressbar"]')).toHaveAttribute('data-component', 'ProgressBar.Item')
+
+    const {container: multiItemContainer} = render(
+      <ProgressBar aria-label="Upload test.png">
+        <ProgressBar.Item progress={80} />
+      </ProgressBar>,
     )
-    expect(render(<Element />).container.firstChild).toHaveClass('test-class-name')
+    expect(multiItemContainer.firstChild).toHaveAttribute('data-component', 'ProgressBar')
+    expect(multiItemContainer.querySelector('[role="progressbar"]')).toHaveAttribute(
+      'data-component',
+      'ProgressBar.Item',
+    )
   })
 
   it('respects the "barSize" prop', () => {

@@ -1,11 +1,15 @@
 import {describe, expect, it, vi} from 'vitest'
-import {Heading} from '../..'
+import Heading from '..'
 import {render, screen} from '@testing-library/react'
+import classes from '../Heading.module.css'
+import {implementsClassName} from '../../utils/testing'
 
 describe('Heading', () => {
-  it('should support `className` on the outermost element', () => {
-    const Element = () => <Heading className={'test-class-name'} />
-    expect(render(<Element />).container.firstChild).toHaveClass('test-class-name')
+  implementsClassName(Heading, classes.Heading)
+
+  it('renders data-component attribute', () => {
+    const {container} = render(<Heading />)
+    expect(container.firstChild).toHaveAttribute('data-component', 'Heading')
   })
 
   it('renders <h2> by default', () => {
@@ -25,7 +29,7 @@ describe('Heading', () => {
   })
 
   // How can we test for generated class names?
-  it.skip('should only include css modules class', () => {
+  it.todo('should only include css modules class', () => {
     render(<Heading>test</Heading>)
     expect(screen.getByText('test')).toHaveClass('prc-Heading-Heading-6CmGO')
     // Note: this is the generated class name when CSS modules is used

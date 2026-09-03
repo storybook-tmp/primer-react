@@ -2,6 +2,7 @@
 
 import {SunIcon, MoonIcon} from '@primer/octicons-react'
 import {Button, useTheme} from '@primer/react'
+
 import classes from './ThemePreference.module.css'
 
 export function ThemePreference() {

@@ -1,10 +1,7 @@
 .changeset
-tmp-v38-changesets-parking
+.agents
 packages/react/CHANGELOG.md
 dist
-lib
-!codemods/lib/**
-lib-esm
 storybook-static
 docs/.cache
 docs/public

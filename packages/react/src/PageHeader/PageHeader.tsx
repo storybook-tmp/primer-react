@@ -1,10 +1,11 @@
 import React, {useEffect} from 'react'
 import type {ResponsiveValue} from '../hooks/useResponsiveValue'
-import {isResponsiveValue, useResponsiveValue} from '../hooks/useResponsiveValue'
+import {isResponsiveValue} from '../hooks/useResponsiveValue'
 import Heading from '../Heading'
 import {ArrowLeftIcon} from '@primer/octicons-react'
 import type {LinkProps as BaseLinkProps} from '../Link'
 import Link from '../Link'
+import {getResponsiveAttributes} from '../internal/utils/getResponsiveAttributes'
 
 import type {ForwardRefComponent as PolymorphicForwardRefComponent} from '../utils/polymorphic'
 import {areAllValuesTheSame, haveRegularAndWideSameValue} from '../utils/getBreakpointDeclarations'
@@ -49,6 +50,56 @@ export type PageHeaderProps = {
 const Root = React.forwardRef<HTMLDivElement, React.PropsWithChildren<PageHeaderProps>>(
   ({children, className, as: BaseComponent = 'div', 'aria-label': ariaLabel, role, hasBorder}, forwardedRef) => {
     const rootRef = useProvidedRefOrCreate<HTMLDivElement>(forwardedRef as React.RefObject<HTMLDivElement>)
+
+    // Hoist title size + navigation visibility off children onto the root so
+    // styling can use plain attribute selectors instead of `:has()`. We descend
+    // into fragments so this matches the previous DOM-based `:has()` selectors,
+    // which saw through fragment wrappers. `titleVariant` stays undefined when
+    // no TitleArea is rendered so the root doesn't emit title sizing in that case.
+    //
+    // Scope of the walk: only direct children and children nested inside
+    // `React.Fragment` are inspected. Unlike the old `:has()` selectors — which
+    // matched a slot at *any* depth in the rendered subtree — we intentionally do
+    // NOT descend into host elements (`<div>…`) or custom wrapper components. This
+    // is safe because `PageHeader.TitleArea`/`Navigation` are compound-component
+    // slots: they are only supported as direct children (optionally via fragments
+    // or conditional/mapped expressions, which `React.Children.toArray` flattens).
+    // Wrapping a slot in an arbitrary element is not a supported usage — the
+    // component's other slot logic (e.g. the direct-children scan in
+    // `validateInteractiveElementsInTitle` below) already assumes this — so the
+    // narrower traversal preserves supported behavior while avoiding an expensive
+    // deep tree walk on every render.
+    //
+    // We return the hoisted state (rather than mutating closure variables) so
+    // TypeScript's control-flow analysis keeps the correct types at the usage
+    // sites below — a value mutated inside a closure stays narrowed to its
+    // initializer (e.g. `hasNavigation` would otherwise be typed as `false`).
+    type HoistedChildState = {
+      titleVariant?: TitleAreaProps['variant']
+      hasNavigation: boolean
+      navigationHidden?: NavigationProps['hidden']
+    }
+    const hoistChildState = (nodes: React.ReactNode): HoistedChildState => {
+      const result: HoistedChildState = {hasNavigation: false}
+      for (const child of React.Children.toArray(nodes)) {
+        if (!React.isValidElement(child)) continue
+        if (child.type === React.Fragment) {
+          const nested = hoistChildState((child.props as {children?: React.ReactNode}).children)
+          if (nested.titleVariant !== undefined) result.titleVariant = nested.titleVariant
+          if (nested.hasNavigation) {
+            result.hasNavigation = true
+            result.navigationHidden = nested.navigationHidden
+          }
+        } else if (child.type === TitleArea) {
+          result.titleVariant = (child.props as TitleAreaProps).variant ?? 'medium'
+        } else if (child.type === Navigation) {
+          result.hasNavigation = true
+          result.navigationHidden = (child.props as NavigationProps).hidden ?? false
+        }
+      }
+      return result
+    }
+    const {titleVariant, hasNavigation, navigationHidden} = hoistChildState(children)
 
     const isInteractive = (element: HTMLElement) => {
       return (
@@ -106,7 +157,11 @@ const Root = React.forwardRef<HTMLDivElement, React.PropsWithChildren<PageHeader
       <BaseComponent
         ref={rootRef}
         className={clsx(classes.PageHeader, className)}
+        data-component="PageHeader"
         data-has-border={hasBorder ? 'true' : undefined}
+        data-has-nav={hasNavigation ? '' : undefined}
+        {...getResponsiveAttributes('title-size-variant', titleVariant)}
+        {...getNavHiddenDataAttributes(navigationHidden)}
         aria-label={ariaLabel}
         role={role}
       >
@@ -126,7 +181,11 @@ const ContextArea: FCWithSlotMarker<React.PropsWithChildren<ChildrenPropTypes>> 
   hidden = hiddenOnRegularAndWide,
 }) => {
   return (
-    <div className={clsx(classes.ContextArea, className)} {...getHiddenDataAttributes(hidden)}>
+    <div
+      className={clsx(classes.ContextArea, className)}
+      data-component="PageHeader.ContextArea"
+      {...getHiddenDataAttributes(hidden)}
+    >
       {children}
     </div>
   )
@@ -144,7 +203,7 @@ export type ParentLinkProps = React.PropsWithChildren<ChildrenPropTypes & LinkPr
 
 // PageHeader.ParentLink : Only visible on narrow viewports by default to let users navigate up in the hierarchy.
 const ParentLink = React.forwardRef<HTMLAnchorElement, ParentLinkProps>(
-  ({children, className, href, 'aria-label': ariaLabel, as = 'a', hidden = hiddenOnRegularAndWide}, ref) => {
+  ({children, className, href, 'aria-label': ariaLabel, as = 'a', hidden = hiddenOnRegularAndWide, ...rest}, ref) => {
     return (
       <>
         <Link
@@ -153,8 +212,10 @@ const ParentLink = React.forwardRef<HTMLAnchorElement, ParentLinkProps>(
           aria-label={ariaLabel}
           muted
           className={clsx(classes.ParentLink, className)}
+          data-component="PageHeader.ParentLink"
           {...getHiddenDataAttributes(hidden)}
           href={href}
+          {...rest}
         >
           <ArrowLeftIcon />
           <div>{children}</div>
@@ -175,7 +236,11 @@ const ContextBar: React.FC<React.PropsWithChildren<ChildrenPropTypes>> = ({
   hidden = hiddenOnRegularAndWide,
 }) => {
   return (
-    <div className={clsx(classes.ContextBar, className)} {...getHiddenDataAttributes(hidden)}>
+    <div
+      className={clsx(classes.ContextBar, className)}
+      data-component="PageHeader.ContextBar"
+      {...getHiddenDataAttributes(hidden)}
+    >
       {children}
     </div>
   )
@@ -189,7 +254,11 @@ const ContextAreaActions: React.FC<React.PropsWithChildren<ChildrenPropTypes>> =
   hidden = hiddenOnRegularAndWide,
 }) => {
   return (
-    <div className={clsx(classes.ContextAreaActions, className)} {...getHiddenDataAttributes(hidden)}>
+    <div
+      className={clsx(classes.ContextAreaActions, className)}
+      data-component="PageHeader.ContextAreaActions"
+      {...getHiddenDataAttributes(hidden)}
+    >
       {children}
     </div>
   )
@@ -205,13 +274,13 @@ export type TitleAreaProps = {
 const TitleArea = React.forwardRef<HTMLDivElement, React.PropsWithChildren<TitleAreaProps>>(
   ({children, className, hidden = false, variant = 'medium'}, forwardedRef) => {
     const titleAreaRef = useProvidedRefOrCreate<HTMLDivElement>(forwardedRef as React.RefObject<HTMLDivElement>)
-    const currentVariant = useResponsiveValue(variant, 'medium')
     return (
       <div
         className={clsx(classes.TitleArea, className)}
+        // @ts-expect-error it needs a non nullable ref
         ref={titleAreaRef}
         data-component="TitleArea"
-        data-size-variant={currentVariant}
+        {...getResponsiveAttributes('size-variant', variant)}
         {...getHiddenDataAttributes(hidden)}
       >
         {children}
@@ -331,7 +400,11 @@ const Actions = ({children, className, hidden = false}: ActionsProps) => {
 // PageHeader.Description: The description area of the header. Visible on all viewports
 const Description: React.FC<React.PropsWithChildren<ChildrenPropTypes>> = ({children, className, hidden = false}) => {
   return (
-    <div className={clsx(classes.Description, className)} {...getHiddenDataAttributes(hidden)}>
+    <div
+      className={clsx(classes.Description, className)}
+      data-component="PageHeader.Description"
+      {...getHiddenDataAttributes(hidden)}
+    >
       {children}
     </div>
   )
@@ -373,12 +446,15 @@ const Navigation: React.FC<React.PropsWithChildren<NavigationProps>> = ({
 
 // Based on getBreakpointDeclarations, this function will return the
 // correct data attribute for the given hidden value for CSS modules.
-function getHiddenDataAttributes(isHidden: boolean | ResponsiveValue<boolean>): {
-  'data-hidden-all'?: boolean
-  'data-hidden-narrow'?: boolean
-  'data-hidden-regular'?: boolean
-  'data-hidden-wide'?: boolean
-} {
+function getHiddenDataAttributes(
+  isHidden: boolean | ResponsiveValue<boolean>,
+  prefix: 'hidden' | 'nav-hidden' = 'hidden',
+): Record<string, boolean | undefined> {
+  const all = `data-${prefix}-all`
+  const narrow = `data-${prefix}-narrow`
+  const regular = `data-${prefix}-regular`
+  const wide = `data-${prefix}-wide`
+
   if (isResponsiveValue(isHidden)) {
     const responsiveValue = isHidden
 
@@ -386,28 +462,28 @@ function getHiddenDataAttributes(isHidden: boolean | ResponsiveValue<boolean>): 
     const narrowMediaQuery =
       'narrow' in responsiveValue
         ? {
-            'data-hidden-narrow': responsiveValue.narrow || undefined,
+            [narrow]: responsiveValue.narrow || undefined,
           }
         : {}
 
     const regularMediaQuery =
       'regular' in responsiveValue
         ? {
-            'data-hidden-regular': responsiveValue.regular || undefined,
+            [regular]: responsiveValue.regular || undefined,
           }
         : {}
 
     const wideMediaQuery =
       'wide' in responsiveValue
         ? {
-            'data-hidden-wide': responsiveValue.wide || undefined,
+            [wide]: responsiveValue.wide || undefined,
           }
         : {}
 
     // check if all values are the same - this is not a recommended practice but we still should check for it
     if (areAllValuesTheSame(responsiveValue)) {
       // if all the values are the same, we can just use one of the value to determine the CSS property's value
-      return {'data-hidden-all': responsiveValue.narrow || undefined}
+      return {[all]: responsiveValue.narrow || undefined}
       // check if regular and wide have the same value, if so we can just return the narrow and regular media queries
     } else if (haveRegularAndWideSameValue(responsiveValue)) {
       return {
@@ -423,8 +499,13 @@ function getHiddenDataAttributes(isHidden: boolean | ResponsiveValue<boolean>): 
     }
   } else {
     // If the given value is not a responsive value
-    return {'data-hidden-all': isHidden || undefined}
+    return {[all]: isHidden || undefined}
   }
+}
+
+function getNavHiddenDataAttributes(isHidden: boolean | ResponsiveValue<boolean> | undefined) {
+  if (isHidden === undefined) return undefined
+  return getHiddenDataAttributes(isHidden, 'nav-hidden')
 }
 
 export const PageHeader = Object.assign(Root, {

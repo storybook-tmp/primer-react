@@ -2,10 +2,19 @@ import CircleBadge from './CircleBadge'
 import {CheckIcon} from '@primer/octicons-react'
 import {render as HTMLRender} from '@testing-library/react'
 import {describe, expect, it} from 'vitest'
+import {implementsClassName} from '../utils/testing'
+import classes from './CircleBadge.module.css'
 
 const imgInput = <img alt="Example" src="primer.jpg" />
 
 describe('CircleBadge', () => {
+  implementsClassName(CircleBadge, classes.CircleBadge)
+
+  it('renders data-component attribute', () => {
+    const {container} = HTMLRender(<CircleBadge />)
+    expect(container.querySelector('[data-component="CircleBadge"]')).toBeInTheDocument()
+  })
+
   it('respects the inline prop', () => {
     const {container} = HTMLRender(<CircleBadge inline />)
     expect(container.firstChild).toMatchSnapshot()
@@ -43,6 +52,11 @@ describe('CircleBadge', () => {
     it('renders an icon', () => {
       const {container} = HTMLRender(<CircleBadge.Icon icon={CheckIcon} />)
       expect(container.firstChild).toBeInTheDocument()
+    })
+
+    it('renders data-component attribute', () => {
+      const {container} = HTMLRender(<CircleBadge.Icon icon={CheckIcon} />)
+      expect(container.querySelector('[data-component="CircleBadge.Icon"]')).toBeInTheDocument()
     })
   })
 })

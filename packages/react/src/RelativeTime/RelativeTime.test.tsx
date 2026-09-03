@@ -1,11 +1,20 @@
 import {describe, expect, it} from 'vitest'
-import {RelativeTime} from '..'
+import RelativeTime from '.'
 import {render} from '@testing-library/react'
+import {implementsClassName} from '../utils/testing'
 
 describe('RelativeTime', () => {
+  implementsClassName(RelativeTime)
   it('renders a <relative-time>', () => {
     const {container} = render(<RelativeTime />)
     expect(container.firstChild?.nodeName.toLowerCase()).toEqual('relative-time')
+  })
+
+  it('renders data-component attribute', () => {
+    const date = new Date('2024-03-07T12:22:48.123Z')
+    const {container} = render(<RelativeTime date={date} />)
+
+    expect(container.firstChild).toHaveAttribute('data-component', 'RelativeTime')
   })
 
   it('renders a date inside', () => {

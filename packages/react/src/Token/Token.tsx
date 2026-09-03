@@ -2,7 +2,9 @@ import type {MouseEventHandler} from 'react'
 import type React from 'react'
 import {forwardRef} from 'react'
 import type {TokenBaseProps} from './TokenBase'
-import TokenBase, {defaultTokenSize, isTokenInteractive} from './TokenBase'
+import TokenBase from './TokenBase'
+import {defaultTokenSize} from './constants'
+import {isTokenInteractive} from './utils'
 import RemoveTokenButton from './_RemoveTokenButton'
 import TokenTextContainer from './_TokenTextContainer'
 import type {ForwardRefComponent as PolymorphicForwardRefComponent} from '../utils/polymorphic'
@@ -16,6 +18,7 @@ import {clsx} from 'clsx'
 export interface TokenProps extends TokenBaseProps {
   /**
    * A component that renders before the token text
+   * disabled when size is 'small'
    */
   leadingVisual?: React.ElementType
 }
@@ -71,7 +74,7 @@ const Token = forwardRef((props, forwardedRef) => {
       ref={forwardedRef}
       style={{borderWidth: `${tokenBorderWidthPx}px`, ...style}}
     >
-      {LeadingVisual ? (
+      {LeadingVisual && size !== 'small' ? (
         <LeadingVisualContainer size={size}>
           <LeadingVisual />
         </LeadingVisualContainer>

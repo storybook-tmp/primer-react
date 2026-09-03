@@ -1,8 +1,11 @@
 import {describe, expect, it} from 'vitest'
 import {useState, useRef} from 'react'
-import {Text, Button} from '../..'
+import Text from '../../Text'
+import {Button} from '../../Button'
 import {Dialog} from '../DialogV1'
 import {render as HTMLRender, fireEvent} from '@testing-library/react'
+import {implementsClassName} from '../../utils/testing'
+import classes from './Dialog.module.css'
 
 /* Dialog Version 1*/
 
@@ -92,10 +95,22 @@ const DialogWithCustomFocusRefAndReturnFocusRef = () => {
 }
 
 describe('Dialog', () => {
-  it('should support `className` on the Dialog element', () => {
-    const Element = () => <Dialog isOpen className={'test-class-name'} />
-    expect(HTMLRender(<Element />).container.children[1]).toHaveClass('test-class-name')
-  })
+  implementsClassName(
+    props => (
+      <Dialog isOpen {...props}>
+        <Dialog.Header>Header</Dialog.Header>
+      </Dialog>
+    ),
+    classes.Dialog,
+  )
+  implementsClassName(
+    props => (
+      <Dialog isOpen>
+        <Dialog.Header {...props}>Header</Dialog.Header>
+      </Dialog>
+    ),
+    classes.Header,
+  )
 
   it('Toggles when you click close button', async () => {
     const {getByLabelText, getByTestId, queryByTestId} = HTMLRender(<Component />)
